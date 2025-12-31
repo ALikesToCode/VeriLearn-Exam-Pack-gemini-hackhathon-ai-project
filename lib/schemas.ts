@@ -14,6 +14,8 @@ export const generatePackSchema = z.object({
   vaultNotes: z.string().optional(),
   vaultDocIds: z.array(z.string()).optional(),
   researchSources: z.array(z.string().url()).optional(),
+  researchApiKey: z.string().optional(),
+  researchQuery: z.string().optional(),
   options: z
     .object({
       examSize: z.number().int().min(3).max(50).default(10),
@@ -22,6 +24,7 @@ export const generatePackSchema = z.object({
       includeResearch: z.boolean().default(false),
       includeCoach: z.boolean().default(true),
       includeAssist: z.boolean().default(false),
+      useCodeExecution: z.boolean().default(false),
       simulateDelayMs: z.number().int().min(0).max(2500).default(250)
     })
     .optional()
@@ -45,6 +48,18 @@ export const coachSchema = z.object({
     )
     .default([]),
   mode: z.enum(["coach", "viva", "assist"]).default("coach"),
+  geminiApiKey: z.string().min(10),
+  model: z.string().min(3)
+});
+
+export const coachSessionSchema = z.object({
+  packId: z.string().min(4),
+  mode: z.enum(["coach", "viva", "assist"]).default("coach")
+});
+
+export const coachMessageSchema = z.object({
+  sessionId: z.string().min(4),
+  message: z.string().min(1),
   geminiApiKey: z.string().min(10),
   model: z.string().min(3)
 });

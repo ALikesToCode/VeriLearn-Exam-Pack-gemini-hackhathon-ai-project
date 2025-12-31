@@ -41,6 +41,18 @@ export type VisualReference = {
   url: string;
   timestamp: string;
   description: string;
+  kind?: "thumbnail" | "storyboard";
+  sprite?: VisualSprite;
+};
+
+export type VisualSprite = {
+  spriteUrl: string;
+  width: number;
+  height: number;
+  columns: number;
+  rows: number;
+  col: number;
+  row: number;
 };
 
 export type NoteSection = {
@@ -141,6 +153,7 @@ export type GeneratePackOptions = {
   includeResearch: boolean;
   includeCoach: boolean;
   includeAssist: boolean;
+  useCodeExecution?: boolean;
   simulateDelayMs: number;
 };
 
@@ -182,6 +195,33 @@ export type VaultDoc = {
   name: string;
   content: string;
   createdAt: string;
+};
+
+export type StoryboardLevel = {
+  width: number;
+  height: number;
+  frameCount: number;
+  columns: number;
+  rows: number;
+  intervalMs: number;
+  name: string;
+  signature: string;
+  level: number;
+  urlTemplate: string;
+};
+
+export type StoryboardSpec = {
+  baseUrl: string;
+  levels: StoryboardLevel[];
+};
+
+export type CoachSession = {
+  id: string;
+  packId: string;
+  mode: "coach" | "viva" | "assist";
+  history: { role: "user" | "assistant"; content: string }[];
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type RemediationItem = {

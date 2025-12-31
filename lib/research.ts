@@ -35,8 +35,14 @@ function extractTitle(html: string) {
   return match?.[1]?.trim() ?? "Source";
 }
 
-export async function fetchResearchSources(urls: string[]): Promise<ResearchSource[]> {
+export async function fetchResearchSources(
+  urls: string[],
+  fallbackSources: ResearchSource[] = []
+): Promise<ResearchSource[]> {
   const sources: ResearchSource[] = [];
+  const fallbackMap = new Map<string, ResearchSource>(
+    fallbackSources.map((source) => [source.url, source])
+  );
 
   for (const url of urls) {
     try {
@@ -46,11 +52,41 @@ export async function fetchResearchSources(urls: string[]): Promise<ResearchSour
       const text = stripHtml(html).slice(0, 2000);
       sources.push({ title, url, excerpt: text });
     } catch {
-      sources.push({ title: "Source", url, excerpt: "Unavailable" });
+      const fallback = fallbackMap.get(url);
+      sources.push(
+        fallback ?? { title: "Source", url, excerpt: "Unavailable" }
+      );
     }
   }
 
   return sources;
+}
+
+export async function searchResearchSources(
+  query: string,
+  apiKey: string,
+  maxResults = 5
+): Promise<ResearchSource[]> {
+  const response = await fetch("https://google.serper.dev/search", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-KEY": apiKey
+    },
+    body: JSON.stringify({ q: query })
+  });
+
+  if (!response.ok) {
+    throw new Error("Research search failed");
+  }
+
+  const data = await response.json();
+  const results = (data.organic ?? []).slice(0, maxResults);
+  return results.map((item: { title?: string; link?: string; snippet?: string }) => ({
+    title: item.title ?? "Source",
+    url: item.link ?? "",
+    excerpt: item.snippet ?? ""
+  })).filter((item: ResearchSource) => item.url);
 }
 
 export async function buildResearchReport(

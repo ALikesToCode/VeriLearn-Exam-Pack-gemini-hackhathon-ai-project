@@ -18,7 +18,9 @@ const STORAGE_KEYS = {
   youtube: "verilearn_youtube_key",
   gemini: "verilearn_gemini_key",
   pro: "verilearn_model_pro",
-  flash: "verilearn_model_flash"
+  flash: "verilearn_model_flash",
+  research: "verilearn_research_key",
+  researchQuery: "verilearn_research_query"
 };
 
 type CoachMessage = { role: "user" | "assistant"; content: string };
@@ -36,9 +38,12 @@ export default function Home() {
     []
   );
   const [researchSources, setResearchSources] = useState("");
+  const [researchApiKey, setResearchApiKey] = useState("");
+  const [researchQuery, setResearchQuery] = useState("");
   const [includeResearch, setIncludeResearch] = useState(false);
   const [includeCoach, setIncludeCoach] = useState(true);
   const [includeAssist, setIncludeAssist] = useState(false);
+  const [useCodeExecution, setUseCodeExecution] = useState(false);
 
   const [youtubeApiKey, setYoutubeApiKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
@@ -64,8 +69,26 @@ export default function Home() {
   const [coachInput, setCoachInput] = useState("");
   const [coachMessages, setCoachMessages] = useState<CoachMessage[]>([]);
   const [coachBusy, setCoachBusy] = useState(false);
+  const [coachSessionId, setCoachSessionId] = useState<string | null>(null);
 
   const progressPercent = job ? Math.round(job.progress * 100) : 0;
+  const spriteScale = 2;
+
+  const buildSpriteStyle = (sprite: {
+    spriteUrl: string;
+    width: number;
+    height: number;
+    columns: number;
+    rows: number;
+    col: number;
+    row: number;
+  }) => ({
+    width: sprite.width * spriteScale,
+    height: sprite.height * spriteScale,
+    backgroundImage: `url(${sprite.spriteUrl})`,
+    backgroundPosition: `-${sprite.col * sprite.width * spriteScale}px -${sprite.row * sprite.height * spriteScale}px`,
+    backgroundSize: `${sprite.columns * sprite.width * spriteScale}px ${sprite.rows * sprite.height * spriteScale}px`
+  });
 
   const fetchPackList = useCallback(async () => {
     setPackListLoading(true);
@@ -90,6 +113,8 @@ export default function Home() {
     setGeminiApiKey(localStorage.getItem(STORAGE_KEYS.gemini) ?? "");
     setProModel(localStorage.getItem(STORAGE_KEYS.pro) ?? DEFAULT_PRO_MODEL);
     setFlashModel(localStorage.getItem(STORAGE_KEYS.flash) ?? DEFAULT_FLASH_MODEL);
+    setResearchApiKey(localStorage.getItem(STORAGE_KEYS.research) ?? "");
+    setResearchQuery(localStorage.getItem(STORAGE_KEYS.researchQuery) ?? "");
   }, []);
 
   useEffect(() => {
@@ -111,6 +136,16 @@ export default function Home() {
     if (typeof window === "undefined") return;
     localStorage.setItem(STORAGE_KEYS.flash, flashModel);
   }, [flashModel]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(STORAGE_KEYS.research, researchApiKey);
+  }, [researchApiKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(STORAGE_KEYS.researchQuery, researchQuery);
+  }, [researchQuery]);
 
   useEffect(() => {
     if (!job?.id || job.status === "completed" || job.status === "failed") {
@@ -203,6 +238,11 @@ export default function Home() {
     setRemediationError(null);
   }, [pack?.id]);
 
+  useEffect(() => {
+    setCoachSessionId(null);
+    setCoachMessages([]);
+  }, [coachMode, pack?.id]);
+
   const handleGenerate = async () => {
     if (!youtubeApiKey || !geminiApiKey) {
       setError("Provide both YouTube and Gemini API keys.");
@@ -254,12 +294,15 @@ export default function Home() {
           .split(/\r?\n/)
           .map((line) => line.trim())
           .filter(Boolean),
+        researchApiKey: researchApiKey || undefined,
+        researchQuery: researchQuery || undefined,
         options: {
           examSize,
           language,
           includeResearch,
           includeCoach,
-          includeAssist
+          includeAssist,
+          useCodeExecution
         }
       })
     });
@@ -382,14 +425,27 @@ export default function Home() {
     setCoachMessages([...history, { role: "user", content: message }, { role: "assistant", content: "" }]);
     setCoachBusy(true);
 
-    const response = await fetch("/api/coach", {
+    let sessionId = coachSessionId;
+    if (!sessionId) {
+      const sessionResponse = await fetch("/api/coach/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packId: pack.id, mode: coachMode })
+      });
+      if (!sessionResponse.ok) {
+        setCoachBusy(false);
+        return;
+      }
+      const sessionData = (await sessionResponse.json()) as { sessionId: string };
+      sessionId = sessionData.sessionId;
+      setCoachSessionId(sessionId);
+    }
+
+    const response = await fetch(`/api/coach/session/${sessionId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        packId: pack.id,
         message,
-        history,
-        mode: coachMode,
         geminiApiKey,
         model: proModel
       })
@@ -416,6 +472,14 @@ export default function Home() {
     }
 
     setCoachBusy(false);
+  };
+
+  const handleCoachReset = async () => {
+    if (coachSessionId) {
+      await fetch(`/api/coach/session/${coachSessionId}`, { method: "DELETE" });
+    }
+    setCoachSessionId(null);
+    setCoachMessages([]);
   };
 
   const handleLoadPack = async (packId: string) => {
@@ -610,6 +674,14 @@ export default function Home() {
                     />
                     <span>Assist mode</span>
                   </label>
+                  <label className="option">
+                    <input
+                      type="checkbox"
+                      checked={useCodeExecution}
+                      onChange={(event) => setUseCodeExecution(event.target.checked)}
+                    />
+                    <span>Use code execution tool</span>
+                  </label>
                 </div>
               </div>
               <div className="form-row">
@@ -647,6 +719,24 @@ export default function Home() {
                   id="research"
                   value={researchSources}
                   onChange={(event) => setResearchSources(event.target.value)}
+                />
+              </div>
+              <div className="form-row">
+                <label htmlFor="research-key">Research API key (Serper)</label>
+                <input
+                  id="research-key"
+                  type="password"
+                  value={researchApiKey}
+                  onChange={(event) => setResearchApiKey(event.target.value)}
+                />
+              </div>
+              <div className="form-row">
+                <label htmlFor="research-query">Research query override</label>
+                <input
+                  id="research-query"
+                  value={researchQuery}
+                  onChange={(event) => setResearchQuery(event.target.value)}
+                  placeholder="e.g. course name syllabus past papers"
                 />
               </div>
             </div>
@@ -841,7 +931,11 @@ export default function Home() {
                     <div className="visuals">
                       {note.visuals.map((visual, index) => (
                         <div key={`${visual.timestamp}-${index}`} className="visual-card">
-                          <img src={visual.url} alt={visual.description} />
+                          {visual.sprite ? (
+                            <div className="sprite-frame" style={buildSpriteStyle(visual.sprite)} />
+                          ) : (
+                            <img src={visual.url} alt={visual.description} />
+                          )}
                           <div className="kicker">{visual.timestamp}</div>
                           <p>{visual.description}</p>
                         </div>
@@ -1035,6 +1129,9 @@ export default function Home() {
                     <option value="assist">Assist</option>
                   </select>
                 </div>
+                <p className="kicker">
+                  Live session: {coachSessionId ? "Active" : "Not started"}
+                </p>
                 <div className="list">
                   {coachMessages.map((message, index) => (
                     <div key={`${message.role}-${index}`} className="note-block">
@@ -1050,13 +1147,18 @@ export default function Home() {
                     placeholder="Ask for a viva question or request clarification"
                   />
                 </div>
-                <button
-                  className="button secondary"
-                  onClick={handleCoachSend}
-                  disabled={coachBusy}
-                >
-                  {coachBusy ? "Thinking..." : "Send to coach"}
-                </button>
+                <div className="pill-list">
+                  <button
+                    className="button secondary"
+                    onClick={handleCoachSend}
+                    disabled={coachBusy}
+                  >
+                    {coachBusy ? "Thinking..." : "Send to coach"}
+                  </button>
+                  <button className="button secondary" onClick={handleCoachReset}>
+                    Reset session
+                  </button>
+                </div>
               </div>
             ) : null}
           </section>

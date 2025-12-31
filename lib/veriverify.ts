@@ -53,7 +53,8 @@ export async function verifyQuestion(
   question: Question,
   context: string,
   apiKey: string,
-  model: string
+  model: string,
+  useCodeExecution = false
 ): Promise<Question> {
   const heuristicIssues: string[] = [];
   if (question.type === "mcq") {
@@ -85,10 +86,15 @@ Answer: ${question.answer}
 Rationale: ${question.rationale}
 Return JSON matching the schema.`;
 
+  const wantsCodeExecution =
+    useCodeExecution &&
+    /\d/.test(`${question.stem} ${question.answer} ${question.rationale}`);
+
   const response = await generateJson<{ supported: boolean; issues: string[] }>({
     apiKey,
     model,
     prompt,
+    tools: wantsCodeExecution ? [{ code_execution: {} }] : undefined,
     config: {
       responseSchema: VERIFY_SCHEMA,
       temperature: 0.2,

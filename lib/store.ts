@@ -1,7 +1,15 @@
 import { kv } from "@vercel/kv";
 import { promises as fs } from "fs";
 import path from "path";
-import { JobStatus, Pack, PackSummary, TranscriptSegment, VaultDoc } from "./types";
+import {
+  CoachSession,
+  JobStatus,
+  Pack,
+  PackSummary,
+  StoryboardSpec,
+  TranscriptSegment,
+  VaultDoc
+} from "./types";
 
 const STORE_PATH = path.join(process.cwd(), "data", "store.json");
 const USE_KV = Boolean(
@@ -13,6 +21,8 @@ type LocalStoreShape = {
   packs: Record<string, Pack>;
   vault: Record<string, VaultDoc>;
   transcripts: Record<string, TranscriptSegment[]>;
+  storyboards: Record<string, StoryboardSpec>;
+  coachSessions: Record<string, CoachSession>;
 };
 
 async function readLocalStore(): Promise<LocalStoreShape> {
@@ -23,10 +33,19 @@ async function readLocalStore(): Promise<LocalStoreShape> {
       jobs: parsed.jobs ?? {},
       packs: parsed.packs ?? {},
       vault: parsed.vault ?? {},
-      transcripts: parsed.transcripts ?? {}
+      transcripts: parsed.transcripts ?? {},
+      storyboards: parsed.storyboards ?? {},
+      coachSessions: parsed.coachSessions ?? {}
     };
   } catch {
-    return { jobs: {}, packs: {}, vault: {}, transcripts: {} };
+    return {
+      jobs: {},
+      packs: {},
+      vault: {},
+      transcripts: {},
+      storyboards: {},
+      coachSessions: {}
+    };
   }
 }
 
@@ -150,6 +169,69 @@ export async function setTranscript(videoId: string, segments: TranscriptSegment
   const store = await readLocalStore();
   store.transcripts[videoId] = segments;
   await writeLocalStore(store);
+}
+
+export async function getStoryboard(videoId: string) {
+  if (USE_KV) {
+    return (await kv.get<StoryboardSpec>(`storyboard:${videoId}`)) ?? null;
+  }
+  const store = await readLocalStore();
+  return store.storyboards[videoId] ?? null;
+}
+
+export async function setStoryboard(videoId: string, spec: StoryboardSpec) {
+  if (USE_KV) {
+    await kv.set(`storyboard:${videoId}`, spec);
+    return;
+  }
+  const store = await readLocalStore();
+  store.storyboards[videoId] = spec;
+  await writeLocalStore(store);
+}
+
+export async function getCoachSession(sessionId: string) {
+  if (USE_KV) {
+    return (await kv.get<CoachSession>(`coach:${sessionId}`)) ?? null;
+  }
+  const store = await readLocalStore();
+  return store.coachSessions[sessionId] ?? null;
+}
+
+export async function setCoachSession(session: CoachSession) {
+  if (USE_KV) {
+    await kv.set(`coach:${session.id}`, session);
+    return;
+  }
+  const store = await readLocalStore();
+  store.coachSessions[session.id] = session;
+  await writeLocalStore(store);
+}
+
+export async function updateCoachSession(
+  sessionId: string,
+  updates: Partial<CoachSession>
+) {
+  const current = await getCoachSession(sessionId);
+  if (!current) return null;
+  const next = {
+    ...current,
+    ...updates,
+    updatedAt: new Date().toISOString()
+  };
+  await setCoachSession(next);
+  return next;
+}
+
+export async function deleteCoachSession(sessionId: string) {
+  if (USE_KV) {
+    await kv.del(`coach:${sessionId}`);
+    return true;
+  }
+  const store = await readLocalStore();
+  if (!store.coachSessions[sessionId]) return false;
+  delete store.coachSessions[sessionId];
+  await writeLocalStore(store);
+  return true;
 }
 
 export async function listPacks(): Promise<PackSummary[]> {

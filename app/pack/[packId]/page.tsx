@@ -7,6 +7,22 @@ export default async function PackPage({
   params: { packId: string };
 }) {
   const pack = await getPack(params.packId);
+  const spriteScale = 2;
+  const buildSpriteStyle = (sprite: {
+    spriteUrl: string;
+    width: number;
+    height: number;
+    columns: number;
+    rows: number;
+    col: number;
+    row: number;
+  }) => ({
+    width: sprite.width * spriteScale,
+    height: sprite.height * spriteScale,
+    backgroundImage: `url(${sprite.spriteUrl})`,
+    backgroundPosition: `-${sprite.col * sprite.width * spriteScale}px -${sprite.row * sprite.height * spriteScale}px`,
+    backgroundSize: `${sprite.columns * sprite.width * spriteScale}px ${sprite.rows * sprite.height * spriteScale}px`
+  });
 
   if (!pack) {
     return (
@@ -91,7 +107,11 @@ export default async function PackPage({
                   <div className="visuals">
                     {note.visuals.map((visual, index) => (
                       <div key={`${visual.timestamp}-${index}`} className="visual-card">
-                        <img src={visual.url} alt={visual.description} />
+                        {visual.sprite ? (
+                          <div className="sprite-frame" style={buildSpriteStyle(visual.sprite)} />
+                        ) : (
+                          <img src={visual.url} alt={visual.description} />
+                        )}
                         <div className="kicker">{visual.timestamp}</div>
                         <p>{visual.description}</p>
                       </div>

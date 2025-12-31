@@ -34,6 +34,8 @@ export async function POST(request: Request) {
     vaultNotes: parsed.data.vaultNotes,
     vaultDocIds: parsed.data.vaultDocIds,
     researchSources: parsed.data.researchSources,
+    researchApiKey: parsed.data.researchApiKey,
+    researchQuery: parsed.data.researchQuery,
     options
   });
 

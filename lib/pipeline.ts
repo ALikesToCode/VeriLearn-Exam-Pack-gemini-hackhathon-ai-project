@@ -14,7 +14,9 @@ import {
 import { createMasteryRecord } from "./mastery";
 import { delay, makeId } from "./utils";
 import { getJob, getTranscript, getVaultDoc, setJob, setPack, setTranscript, updateJob } from "./store";
-import { buildResearchReport, fetchResearchSources } from "./research";
+import { buildResearchReport, fetchResearchSources, searchResearchSources } from "./research";
+import { buildVisualReferences } from "./storyboard";
+import { buildVaultContext } from "./vaultSearch";
 import { GeneratePackOptions, JobStatus, Pack, TranscriptSegment } from "./types";
 
 export type PipelineInputs = {
@@ -29,6 +31,8 @@ export type PipelineInputs = {
   vaultNotes?: string;
   vaultDocIds?: string[];
   researchSources?: string[];
+  researchApiKey?: string;
+  researchQuery?: string;
   options: GeneratePackOptions;
 };
 
@@ -40,6 +44,7 @@ export function normalizeOptions(options?: Partial<GeneratePackOptions>): Genera
     includeResearch: options?.includeResearch ?? false,
     includeCoach: options?.includeCoach ?? true,
     includeAssist: options?.includeAssist ?? false,
+    useCodeExecution: options?.useCodeExecution ?? false,
     simulateDelayMs: options?.simulateDelayMs ?? 150
   };
 }
@@ -147,19 +152,30 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
     const blueprint = buildBlueprint(title, lectures);
     let researchReport;
 
-    if (inputs.options.includeResearch && inputs.researchSources?.length) {
+    if (inputs.options.includeResearch) {
       await updateJob(jobId, {
         step: "Building research blueprint",
         progress: 0.15
       });
 
-      const sources = await fetchResearchSources(inputs.researchSources);
-      researchReport = await buildResearchReport(
-        title,
-        sources,
-        inputs.geminiApiKey,
-        inputs.models.pro
-      );
+      let sources = [] as Awaited<ReturnType<typeof fetchResearchSources>>;
+      if (inputs.researchSources?.length) {
+        sources = await fetchResearchSources(inputs.researchSources);
+      } else if (inputs.researchApiKey) {
+        const query = inputs.researchQuery ?? `${title} syllabus past paper topics`;
+        const searchResults = await searchResearchSources(query, inputs.researchApiKey, 5);
+        const urls = searchResults.map((result) => result.url);
+        sources = await fetchResearchSources(urls, searchResults);
+      }
+
+      if (sources.length) {
+        researchReport = await buildResearchReport(
+          title,
+          sources,
+          inputs.geminiApiKey,
+          inputs.models.pro
+        );
+      }
     }
 
     await updateJob(jobId, {
@@ -170,17 +186,14 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
     const notes = [] as Pack["notes"];
     const transcripts: Record<string, TranscriptSegment[]> = {};
     const vaultDocs = inputs.vaultDocIds?.length
-      ? await Promise.all(inputs.vaultDocIds.map((id) => getVaultDoc(id)))
+      ? (await Promise.all(inputs.vaultDocIds.map((id) => getVaultDoc(id)))).filter(Boolean)
       : [];
-    const vaultDocText = vaultDocs
-      .filter(Boolean)
-      .map((doc) => `Document: ${doc!.name}\n${doc!.content}`)
-      .join("\n");
-    const extraContext = [
+    const baseContextParts = [
       inputs.vaultNotes,
-      vaultDocText,
       inputs.examDate ? `Exam date: ${inputs.examDate}` : ""
-    ]
+    ].filter(Boolean);
+    const globalVaultContext = buildVaultContext(title, vaultDocs);
+    const globalContext = [...baseContextParts, globalVaultContext]
       .filter(Boolean)
       .join("\n")
       .slice(0, 20000);
@@ -206,12 +219,18 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
           step: `Generating notes for ${lecture.title}`
         });
 
+        const lectureVaultContext = buildVaultContext(lecture.title, vaultDocs);
+        const lectureContext = [...baseContextParts, lectureVaultContext]
+          .filter(Boolean)
+          .join("\n")
+          .slice(0, 20000);
+
         const note = await generateNotes(
           lecture,
           segments,
           inputs.geminiApiKey,
           inputs.models.pro,
-          extraContext
+          lectureContext
         );
 
         const verified = await verifyNoteWithRetry(
@@ -220,10 +239,11 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
           inputs.geminiApiKey,
           inputs.models.flash,
           inputs.models.pro,
-          extraContext
+          lectureContext
         );
 
-        notes.push(verified);
+        const visuals = await buildVisualReferences(lecture, verified.citations);
+        notes.push({ ...verified, visuals });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         jobErrors = [...jobErrors, `Lecture ${lecture.title} failed: ${message}`];
@@ -262,7 +282,7 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
       inputs.geminiApiKey,
       inputs.models.pro,
       4,
-      extraContext
+      globalContext
     );
 
     await updateJob(jobId, {
@@ -281,7 +301,8 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
         current,
         transcriptContext,
         inputs.geminiApiKey,
-        inputs.models.flash
+        inputs.models.flash,
+        inputs.options.useCodeExecution
       );
 
       if (!verified.verified) {
@@ -298,14 +319,15 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
               inputs.geminiApiKey,
               inputs.models.pro,
               issues,
-              extraContext,
+              globalContext,
               current.id
             );
             verified = await verifyQuestion(
               current,
               transcriptContext,
               inputs.geminiApiKey,
-              inputs.models.flash
+              inputs.models.flash,
+              inputs.options.useCodeExecution
             );
             if (verified.verified) {
               break;
@@ -340,14 +362,15 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
         inputs.geminiApiKey,
         inputs.models.pro,
         1,
-        extraContext
+        globalContext
       );
       for (const question of extraQuestions) {
         const verified = await verifyQuestion(
           question,
           transcriptContext,
           inputs.geminiApiKey,
-          inputs.models.flash
+          inputs.models.flash,
+          inputs.options.useCodeExecution
         );
         verifiedQuestions.push(verified);
       }

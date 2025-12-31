@@ -323,6 +323,13 @@ label {
   object-fit: cover;
 }
 
+.sprite-frame {
+  border-radius: 10px;
+  border: 1px solid rgba(17, 27, 33, 0.08);
+  background-repeat: no-repeat;
+  background-color: #fff;
+}
+
 .question {
   display: grid;
   gap: 10px;

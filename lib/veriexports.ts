@@ -169,17 +169,38 @@ export function buildHtml(pack: Pack) {
         ? `
           <div class="visuals">
             ${note.visuals
-              .map(
-                (visual) => `
-                <figure>
-                  <img src="${escapeHtml(visual.url)}" alt="${escapeHtml(
+              .map((visual) => {
+                if (visual.sprite) {
+                  const sprite = visual.sprite;
+                  const scale = 2;
+                  const width = sprite.width * scale;
+                  const height = sprite.height * scale;
+                  const backgroundSize = `${sprite.columns * sprite.width * scale}px ${
+                    sprite.rows * sprite.height * scale
+                  }px`;
+                  const backgroundPosition = `-${sprite.col * sprite.width * scale}px -${
+                    sprite.row * sprite.height * scale
+                  }px`;
+                  return `
+                    <figure>
+                      <div class="sprite" style="width:${width}px;height:${height}px;background-image:url('${escapeHtml(
+                        sprite.spriteUrl
+                      )}');background-size:${backgroundSize};background-position:${backgroundPosition};"></div>
+                      <figcaption>${escapeHtml(visual.timestamp)} - ${escapeHtml(
+                        visual.description
+                      )}</figcaption>
+                    </figure>`;
+                }
+                return `
+                  <figure>
+                    <img src="${escapeHtml(visual.url)}" alt="${escapeHtml(
                   visual.description
                 )}" />
-                  <figcaption>${escapeHtml(visual.timestamp)} - ${escapeHtml(
+                    <figcaption>${escapeHtml(visual.timestamp)} - ${escapeHtml(
                   visual.description
                 )}</figcaption>
-                </figure>`
-              )
+                  </figure>`;
+              })
               .join("")}
           </div>`
         : "";
@@ -249,6 +270,7 @@ export function buildHtml(pack: Pack) {
       .visuals { display: grid; gap: 12px; margin-top: 12px; }
       figure { margin: 0; }
       img { width: 100%; border-radius: 12px; border: 1px solid #e7dcc8; }
+      .sprite { border-radius: 12px; border: 1px solid #e7dcc8; background-repeat: no-repeat; background-color: #fff; }
       figcaption { font-size: 0.85rem; color: #5c676f; margin-top: 6px; }
       .options { padding-left: 18px; color: #5c676f; }
       .answer { margin-top: 12px; font-weight: 600; }

@@ -5,6 +5,10 @@ type GenerationConfig = {
   maxOutputTokens?: number;
   responseMimeType?: string;
   responseSchema?: Record<string, unknown>;
+  retry?: {
+    maxRetries?: number;
+    baseDelayMs?: number;
+  };
 };
 
 type GenerateOptions = {
@@ -13,6 +17,8 @@ type GenerateOptions = {
   prompt: string;
   system?: string;
   config?: GenerationConfig;
+  tools?: Record<string, unknown>[];
+  toolConfig?: Record<string, unknown>;
 };
 
 function buildPayload(options: GenerateOptions) {
@@ -37,28 +43,50 @@ function buildPayload(options: GenerateOptions) {
     };
   }
 
+  if (options.tools?.length) {
+    payload.tools = options.tools;
+  }
+
+  if (options.toolConfig) {
+    payload.toolConfig = options.toolConfig;
+  }
+
   return payload;
 }
 
-async function postJson(url: string, payload: Record<string, unknown>) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+async function postJson(
+  url: string,
+  payload: Record<string, unknown>,
+  retry?: GenerationConfig["retry"]
+) {
+  const maxRetries = retry?.maxRetries ?? 2;
+  const baseDelayMs = retry?.baseDelayMs ?? 400;
+  let attempt = 0;
 
-  if (!response.ok) {
+  while (true) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      return response.json();
+    }
+
     const text = await response.text();
-    throw new Error(text || `Gemini error ${response.status}`);
+    if (attempt >= maxRetries) {
+      throw new Error(text || `Gemini error ${response.status}`);
+    }
+    attempt += 1;
+    await new Promise((resolve) => setTimeout(resolve, baseDelayMs * attempt));
   }
-
-  return response.json();
 }
 
 export async function generateText(options: GenerateOptions) {
   const payload = buildPayload(options);
   const url = `${API_BASE}/models/${options.model}:generateContent?key=${options.apiKey}`;
-  const data = await postJson(url, payload);
+  const data = await postJson(url, payload, options.config?.retry);
   const text = data.candidates?.[0]?.content?.parts
     ?.map((part: any) => part.text)
     .join("");
@@ -76,7 +104,7 @@ export async function generateJson<T>(options: GenerateOptions): Promise<T> {
     }
   });
   const url = `${API_BASE}/models/${options.model}:generateContent?key=${options.apiKey}`;
-  const data = await postJson(url, payload);
+  const data = await postJson(url, payload, options.config?.retry);
   const text = data.candidates?.[0]?.content?.parts
     ?.map((part: any) => part.text)
     .join("");
@@ -90,15 +118,26 @@ export async function generateJson<T>(options: GenerateOptions): Promise<T> {
 export async function streamText(options: GenerateOptions) {
   const payload = buildPayload(options);
   const url = `${API_BASE}/models/${options.model}:streamGenerateContent?key=${options.apiKey}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+  const maxRetries = options.config?.retry?.maxRetries ?? 1;
+  const baseDelayMs = options.config?.retry?.baseDelayMs ?? 400;
+  let attempt = 0;
+  let response: Response | null = null;
 
-  if (!response.ok || !response.body) {
-    const text = await response.text();
-    throw new Error(text || `Gemini stream error ${response.status}`);
+  while (attempt <= maxRetries) {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (response.ok && response.body) break;
+    attempt += 1;
+    if (attempt > maxRetries) break;
+    await new Promise((resolve) => setTimeout(resolve, baseDelayMs * attempt));
+  }
+
+  if (!response || !response.ok || !response.body) {
+    const text = response ? await response.text() : "";
+    throw new Error(text || "Gemini stream error");
   }
 
   const decoder = new TextDecoder();

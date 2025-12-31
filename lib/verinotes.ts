@@ -5,8 +5,7 @@ import {
   Lecture,
   NoteDocument,
   NoteSection,
-  TranscriptSegment,
-  VisualReference
+  TranscriptSegment
 } from "./types";
 
 const NOTE_SCHEMA = {
@@ -59,18 +58,6 @@ function toCitation(lecture: Lecture, item: { label: string; timestamp: string; 
   };
 }
 
-function buildVisuals(
-  lecture: Lecture,
-  citations: { label: string; timestamp: string; snippet?: string }[]
-): VisualReference[] {
-  const baseUrl = `https://i.ytimg.com/vi/${lecture.videoId}/hqdefault.jpg`;
-  return citations.slice(0, 2).map((item, index) => ({
-    url: baseUrl,
-    timestamp: item.timestamp,
-    description: item.snippet ?? `Keyframe ${index + 1}`
-  }));
-}
-
 export async function generateNotes(
   lecture: Lecture,
   segments: TranscriptSegment[],
@@ -108,7 +95,6 @@ Return JSON matching the schema.`;
   });
 
   const citations = response.citations.map((item) => toCitation(lecture, item));
-  const visuals = buildVisuals(lecture, response.citations);
 
   return {
     lectureId: lecture.id,
@@ -119,7 +105,6 @@ Return JSON matching the schema.`;
     sections: response.sections,
     keyTakeaways: response.keyTakeaways,
     citations,
-    verified: false,
-    visuals
+    verified: false
   };
 }

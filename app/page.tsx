@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { GradeResult, JobStatus, Pack, Question } from "../lib/types";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type {
+  GradeResult,
+  JobStatus,
+  Pack,
+  PackSummary,
+  Question,
+  RemediationItem
+} from "../lib/types";
 
 const DEFAULT_INPUT = "https://youtube.com/playlist?list=PL123_VERILEARN";
-const DEFAULT_PRO_MODEL = "gemini-1.5-pro";
-const DEFAULT_FLASH_MODEL = "gemini-1.5-flash";
+const DEFAULT_PRO_MODEL = "gemini-3-pro";
+const DEFAULT_FLASH_MODEL = "gemini-3-flash";
 
 const STORAGE_KEYS = {
   youtube: "verilearn_youtube_key",
@@ -40,12 +47,18 @@ export default function Home() {
 
   const [job, setJob] = useState<JobStatus | null>(null);
   const [pack, setPack] = useState<Pack | null>(null);
+  const [packList, setPackList] = useState<PackSummary[]>([]);
+  const [packListLoading, setPackListLoading] = useState(false);
+  const [packListError, setPackListError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [examAnswers, setExamAnswers] = useState<Record<string, string>>({});
   const [examResults, setExamResults] = useState<Record<string, GradeResult>>({});
   const [examStarted, setExamStarted] = useState(false);
   const [examTimeLeft, setExamTimeLeft] = useState<number | null>(null);
+  const [remediation, setRemediation] = useState<RemediationItem[] | null>(null);
+  const [remediationLoading, setRemediationLoading] = useState(false);
+  const [remediationError, setRemediationError] = useState<string | null>(null);
 
   const [coachMode, setCoachMode] = useState<CoachMode>("coach");
   const [coachInput, setCoachInput] = useState("");
@@ -53,6 +66,23 @@ export default function Home() {
   const [coachBusy, setCoachBusy] = useState(false);
 
   const progressPercent = job ? Math.round(job.progress * 100) : 0;
+
+  const fetchPackList = useCallback(async () => {
+    setPackListLoading(true);
+    setPackListError(null);
+    try {
+      const response = await fetch("/api/packs");
+      if (!response.ok) {
+        throw new Error("Failed to load packs");
+      }
+      const data = (await response.json()) as { packs?: PackSummary[] };
+      setPackList(data.packs ?? []);
+    } catch (err) {
+      setPackListError(err instanceof Error ? err.message : "Failed to load packs");
+    } finally {
+      setPackListLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -83,29 +113,70 @@ export default function Home() {
   }, [flashModel]);
 
   useEffect(() => {
-    if (!job || job.status === "completed" || job.status === "failed") {
+    if (!job?.id || job.status === "completed" || job.status === "failed") {
       return;
     }
 
-    const interval = setInterval(async () => {
-      const response = await fetch(`/api/status/${job.id}`);
-      if (!response.ok) {
-        return;
-      }
-      const data = (await response.json()) as JobStatus;
-      setJob(data);
+    let active = true;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    let eventSource: EventSource | null = null;
 
+    const handleUpdate = async (data: JobStatus) => {
+      if (!active) return;
+      setJob(data);
+      if (data.status === "completed" || data.status === "failed") {
+        if (interval) clearInterval(interval);
+        eventSource?.close();
+      }
       if (data.status === "completed" && data.packId) {
         const packResponse = await fetch(`/api/study-pack/${data.packId}`);
         if (packResponse.ok) {
           const packData = (await packResponse.json()) as Pack;
           setPack(packData);
+          fetchPackList();
         }
       }
-    }, 1500);
+    };
 
-    return () => clearInterval(interval);
-  }, [job]);
+    const pollStatus = async () => {
+      const response = await fetch(`/api/status/${job.id}`);
+      if (!response.ok) return;
+      const data = (await response.json()) as JobStatus;
+      handleUpdate(data);
+    };
+
+    const startPolling = () => {
+      if (interval) return;
+      interval = setInterval(pollStatus, 1500);
+    };
+
+    if (typeof EventSource !== "undefined") {
+      eventSource = new EventSource(`/api/status/stream/${job.id}`);
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data) as JobStatus;
+          handleUpdate(data);
+          if (data.status === "completed" || data.status === "failed") {
+            eventSource?.close();
+          }
+        } catch {
+          // ignore malformed events
+        }
+      };
+      eventSource.onerror = () => {
+        eventSource?.close();
+        startPolling();
+      };
+    } else {
+      startPolling();
+    }
+
+    return () => {
+      active = false;
+      eventSource?.close();
+      if (interval) clearInterval(interval);
+    };
+  }, [job?.id, fetchPackList]);
 
   useEffect(() => {
     if (!examStarted || !pack) return;
@@ -123,6 +194,15 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [examStarted, pack]);
 
+  useEffect(() => {
+    fetchPackList();
+  }, [fetchPackList]);
+
+  useEffect(() => {
+    setRemediation(null);
+    setRemediationError(null);
+  }, [pack?.id]);
+
   const handleGenerate = async () => {
     if (!youtubeApiKey || !geminiApiKey) {
       setError("Provide both YouTube and Gemini API keys.");
@@ -136,6 +216,8 @@ export default function Home() {
     setExamResults({});
     setExamStarted(false);
     setExamTimeLeft(null);
+    setRemediation(null);
+    setRemediationError(null);
 
     let vaultDocIds: string[] = vaultDocs.map((doc) => doc.id);
     if (vaultFiles.length) {
@@ -272,6 +354,11 @@ export default function Home() {
     window.open(`/api/export/pdf?packId=${pack.id}`, "_blank");
   };
 
+  const downloadHtml = () => {
+    if (!pack) return;
+    window.open(`/api/export/html?packId=${pack.id}`, "_blank");
+  };
+
   const downloadAnki = (format: "csv" | "tsv") => {
     if (!pack) return;
     window.open(`/api/export/anki?packId=${pack.id}&format=${format}`, "_blank");
@@ -329,6 +416,60 @@ export default function Home() {
     }
 
     setCoachBusy(false);
+  };
+
+  const handleLoadPack = async (packId: string) => {
+    const response = await fetch(`/api/study-pack/${packId}`);
+    if (!response.ok) {
+      return;
+    }
+    const data = (await response.json()) as Pack;
+    setPack(data);
+    setJob(null);
+  };
+
+  const handleDeletePack = async (packId: string) => {
+    const response = await fetch(`/api/study-pack/${packId}`, { method: "DELETE" });
+    if (!response.ok) {
+      return;
+    }
+    setPackList((prev) => prev.filter((item) => item.id !== packId));
+    if (pack?.id === packId) {
+      setPack(null);
+    }
+  };
+
+  const handleRemediation = async () => {
+    if (!pack) return;
+    setRemediationLoading(true);
+    setRemediationError(null);
+    try {
+      const incorrectIds = Object.values(examResults)
+        .filter((result) => !result.correct)
+        .map((result) => result.questionId);
+
+      const response = await fetch("/api/remediation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packId: pack.id,
+          incorrectQuestionIds: incorrectIds.length ? incorrectIds : undefined,
+          geminiApiKey: geminiApiKey || undefined,
+          model: geminiApiKey ? proModel : undefined
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate remediation plan.");
+      }
+
+      const data = (await response.json()) as { remediation: RemediationItem[] };
+      setRemediation(data.remediation ?? []);
+    } catch (err) {
+      setRemediationError(err instanceof Error ? err.message : "Failed to generate remediation plan.");
+    } finally {
+      setRemediationLoading(false);
+    }
   };
 
   return (
@@ -536,6 +677,48 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="card fade-in">
+          <div className="section-title">Saved packs</div>
+          {packListLoading ? <p>Loading packs...</p> : null}
+          {packListError ? <p className="feedback bad">{packListError}</p> : null}
+          {packList.length ? (
+            <div className="list">
+              {packList.map((summary) => (
+                <div key={summary.id} className="note-block">
+                  <div className="pack-row">
+                    <div>
+                      <strong>{summary.title}</strong>
+                      <p className="muted">
+                        {new Date(summary.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="pack-actions">
+                      <button
+                        className="button secondary"
+                        onClick={() => handleLoadPack(summary.id)}
+                      >
+                        Open
+                      </button>
+                      <a className="button secondary" href={`/pack/${summary.id}`}>
+                        Share
+                      </a>
+                      <button
+                        className="button danger"
+                        onClick={() => handleDeletePack(summary.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {!packListLoading && !packList.length ? (
+            <p className="muted">No packs yet. Generate one to start.</p>
+          ) : null}
+        </section>
+
         {pack ? (
           <section className="grid-2 fade-in">
             <div className="card">
@@ -549,6 +732,9 @@ export default function Home() {
                 <div className="pill-list">
                   <button className="button secondary" onClick={downloadPdf}>
                     PDF
+                  </button>
+                  <button className="button secondary" onClick={downloadHtml}>
+                    HTML
                   </button>
                   <button className="button secondary" onClick={() => downloadAnki("csv")}>
                     Anki CSV
@@ -794,6 +980,44 @@ export default function Home() {
                   );
                 })}
               </div>
+            </div>
+
+            <div className="card">
+              <div className="section-title">Remediation plan</div>
+              <p className="kicker">Focus on weak topics and evidence-backed review.</p>
+              <button
+                className="button secondary"
+                onClick={handleRemediation}
+                disabled={remediationLoading}
+              >
+                {remediationLoading ? "Building plan..." : "Generate remediation"}
+              </button>
+              {remediationError ? <p className="feedback bad">{remediationError}</p> : null}
+              {remediation?.length ? (
+                <div className="list">
+                  {remediation.map((item) => (
+                    <div key={item.topicId} className="note-block">
+                      <strong>{item.topicTitle}</strong>
+                      <p>{item.advice}</p>
+                      <div className="pill-list">
+                        {item.citations.slice(0, 3).map((citation) => (
+                          <a
+                            key={citation.label}
+                            className="pill"
+                            href={citation.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {citation.timestamp}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">Generate a plan after answering questions.</p>
+              )}
             </div>
 
             {includeCoach ? (

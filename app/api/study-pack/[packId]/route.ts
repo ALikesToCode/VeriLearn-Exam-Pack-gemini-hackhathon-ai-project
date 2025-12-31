@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPack } from "../../../../lib/store";
+import { deletePack, getPack } from "../../../../lib/store";
 
 export async function GET(
   _request: Request,
@@ -11,4 +11,16 @@ export async function GET(
   }
 
   return NextResponse.json(pack);
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { packId: string } }
+) {
+  const removed = await deletePack(params.packId);
+  if (!removed) {
+    return NextResponse.json({ error: "Pack not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

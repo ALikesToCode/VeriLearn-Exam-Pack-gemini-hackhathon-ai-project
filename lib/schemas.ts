@@ -48,3 +48,12 @@ export const coachSchema = z.object({
   geminiApiKey: z.string().min(10),
   model: z.string().min(3)
 });
+
+export const remediationSchema = z.object({
+  packId: z.string().min(4),
+  incorrectQuestionIds: z.array(z.string()).optional(),
+  topics: z.array(z.string()).optional(),
+  maxTopics: z.number().int().min(1).max(12).optional(),
+  geminiApiKey: z.string().min(10).optional(),
+  model: z.string().min(3).optional()
+});

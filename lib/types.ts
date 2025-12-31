@@ -167,6 +167,7 @@ export type ExportLinks = {
   pdf?: string;
   ankiCsv?: string;
   ankiTsv?: string;
+  html?: string;
 };
 
 export type PackSummary = {
@@ -181,4 +182,17 @@ export type VaultDoc = {
   name: string;
   content: string;
   createdAt: string;
+};
+
+export type RemediationItem = {
+  topicId: string;
+  topicTitle: string;
+  advice: string;
+  questionIds: string[];
+  citations: Citation[];
+};
+
+export type RemediationResponse = {
+  packId: string;
+  remediation: RemediationItem[];
 };

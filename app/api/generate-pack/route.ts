@@ -21,8 +21,8 @@ export async function POST(request: Request) {
   const job = await createJob();
   const options = normalizeOptions(parsed.data.options ?? {});
   const models = {
-    pro: parsed.data.models?.pro ?? "gemini-1.5-pro",
-    flash: parsed.data.models?.flash ?? "gemini-1.5-flash"
+    pro: parsed.data.models?.pro ?? "gemini-3-pro",
+    flash: parsed.data.models?.flash ?? "gemini-3-flash"
   };
 
   const task = runPackPipeline(job.id, {

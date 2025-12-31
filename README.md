@@ -1,6 +1,6 @@
 # VeriLearn Exam Pack (Next.js)
 
-A full-stack Next.js app that turns YouTube lecture playlists into evidence-backed exam prep: blueprint, notes with timestamps, question bank, mock exam, mastery tracking, exports (PDF/CSV/TSV), and a live coach.
+A full-stack Next.js app that turns YouTube lecture playlists into evidence-backed exam prep: blueprint, notes with timestamps, question bank, mock exam, mastery tracking, exports (PDF/HTML/CSV/TSV), and a live coach.
 
 ## Quick start
 
@@ -18,9 +18,11 @@ Open `http://localhost:3000` and paste a playlist or a list of video URLs. Provi
 - Gemini Pro for notes + questions
 - Gemini Flash for verification gates
 - Mock exam with grading + remediation links
+- Remediation plans grouped by weak topics
 - Mastery tracking with spaced repetition cadence
-- Exports: PDF + Anki CSV/TSV
+- Exports: PDF + HTML + Anki CSV/TSV
 - Shareable pack pages
+- Saved pack list + delete
 - Coach / Viva / Assist chat mode (streamed)
 
 ## Deployment (Vercel)
@@ -31,9 +33,15 @@ Open `http://localhost:3000` and paste a playlist or a list of video URLs. Provi
 
 If KV is not configured, the app falls back to a local JSON file store in `data/` (dev only).
 
+## Docs
+
+- `docs/ARCHITECTURE.md`
+- `docs/DEMO_SCRIPT.md`
+- `docs/TESTING.md`
+
 ## Notes
 
 - Transcripts are fetched from YouTube timed text endpoints; some videos may not expose captions.
 - For best results, keep playlists under 20-30 lectures per run to avoid long generation times.
-- Models are configurable in the UI (defaults: `gemini-1.5-pro`, `gemini-1.5-flash`).
+- Models are configurable in the UI (defaults: `gemini-3-pro`, `gemini-3-flash`).
 - Upload PDFs/TXT in the Vault section to ground generation against syllabus or slides.

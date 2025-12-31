@@ -92,6 +92,19 @@ export async function updatePack(packId: string, updates: Partial<Pack>) {
   return next;
 }
 
+export async function deletePack(packId: string) {
+  if (USE_KV) {
+    await kv.del(`pack:${packId}`);
+    await kv.srem("packs:index", packId);
+    return true;
+  }
+  const store = await readLocalStore();
+  if (!store.packs[packId]) return false;
+  delete store.packs[packId];
+  await writeLocalStore(store);
+  return true;
+}
+
 export async function getVaultDoc(docId: string) {
   if (USE_KV) {
     return (await kv.get<VaultDoc>(`vault:${docId}`)) ?? null;

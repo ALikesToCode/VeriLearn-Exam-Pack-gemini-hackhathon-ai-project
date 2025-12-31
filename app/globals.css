@@ -186,6 +186,11 @@ label {
   color: var(--ink);
 }
 
+.button.danger {
+  background: rgba(255, 107, 74, 0.15);
+  color: #b0442a;
+}
+
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -251,10 +256,29 @@ label {
   border: 1px solid rgba(17, 27, 33, 0.08);
 }
 
+.pack-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pack-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .kicker {
   font-size: 0.85rem;
   color: var(--accent);
   font-weight: 600;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .list {

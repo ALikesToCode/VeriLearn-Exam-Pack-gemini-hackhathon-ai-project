@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { coachMessageSchema } from "../../../../../lib/schemas";
 import { buildCoachPrompt } from "../../../../../lib/coach";
 import { fetchResearchSources } from "../../../../../lib/research";
+import { runAssistTools } from "../../../../../lib/assistTools";
 import { streamText } from "../../../../../lib/gemini";
 import {
   deleteCoachSession,
@@ -10,6 +11,7 @@ import {
   updateCoachSession
 } from "../../../../../lib/store";
 import { makeId } from "../../../../../lib/utils";
+import { buildComputerUseTools, buildFileSearchTools } from "../../../../../lib/tools";
 
 export async function GET(
   _request: Request,
@@ -88,21 +90,33 @@ export async function POST(
 
   let enrichedPrompt = prompt;
   if (session.mode === "assist") {
+    const toolContext = await runAssistTools(parsed.data.message);
     const urls = parsed.data.message.match(/https?:\/\/[^\s]+/g) ?? [];
     if (urls.length) {
       const sources = await fetchResearchSources(urls.slice(0, 2));
       const appendix = sources
         .map((source) => `URL: ${source.url}\nExcerpt: ${source.excerpt}`)
         .join("\n\n");
-      enrichedPrompt = `${prompt}\n\nAdditional resources:\n${appendix}`;
+      enrichedPrompt = `${enrichedPrompt}\n\nAdditional resources:\n${appendix}`;
+    }
+    if (toolContext) {
+      enrichedPrompt = `${enrichedPrompt}\n\nAssist tool results:\n${toolContext}`;
     }
   }
+
+  const tools = [
+    ...(session.mode === "assist" ? buildComputerUseTools() : []),
+    ...(pack.fileSearchStoreName
+      ? buildFileSearchTools(pack.fileSearchStoreName)
+      : [])
+  ];
 
   const textStream = await streamText({
     apiKey: parsed.data.geminiApiKey,
     model: parsed.data.model,
     prompt: enrichedPrompt,
     system,
+    tools: tools.length ? tools : undefined,
     config: {
       temperature: 0.5,
       maxOutputTokens: 800,

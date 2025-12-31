@@ -7,6 +7,7 @@ import {
   VisualReference,
   VisualSprite
 } from "./types";
+import { captureFrame } from "./frameCapture";
 
 const SPEC_REGEX = /"playerStoryboardSpecRenderer"\s*:\s*\{"spec":"([^"]+)"\}/;
 
@@ -148,6 +149,28 @@ export async function buildVisualReferences(
   lecture: Lecture,
   citations: Citation[]
 ): Promise<VisualReference[]> {
+  const frameAttempts = await Promise.all(
+    citations.slice(0, 2).map(async (item, index) => {
+      const seconds = parseTimestamp(item.timestamp);
+      const dataUrl = await captureFrame({
+        videoId: lecture.videoId,
+        timestampSeconds: seconds
+      });
+      if (!dataUrl) return null;
+      return {
+        url: dataUrl,
+        timestamp: item.timestamp,
+        description: item.snippet ?? `Keyframe ${index + 1}`,
+        kind: "frame"
+      } as VisualReference;
+    })
+  );
+
+  const captured = frameAttempts.filter(Boolean) as VisualReference[];
+  if (captured.length) {
+    return captured;
+  }
+
   const spec = await fetchStoryboardSpec(lecture.videoId);
   if (!spec) {
     return fallbackVisuals(lecture, citations);

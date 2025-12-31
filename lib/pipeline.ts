@@ -28,6 +28,7 @@ import {
 import { buildResearchReport, fetchResearchSources, searchResearchSources } from "./research";
 import { buildVisualReferences } from "./storyboard";
 import { buildVaultContext } from "./vaultSearch";
+import { createFileSearchStore, uploadVaultDocsToStore } from "./fileSearchStore";
 import { GeneratePackOptions, JobStatus, Pack, TranscriptSegment } from "./types";
 
 export type PipelineInputs = {
@@ -57,6 +58,8 @@ export function normalizeOptions(options?: Partial<GeneratePackOptions>): Genera
     includeCoach: options?.includeCoach ?? true,
     includeAssist: options?.includeAssist ?? false,
     useCodeExecution: options?.useCodeExecution ?? false,
+    useFileSearch: options?.useFileSearch ?? false,
+    useInteractions: options?.useInteractions ?? false,
     simulateDelayMs: options?.simulateDelayMs ?? 150
   };
 }
@@ -113,7 +116,11 @@ async function verifyNoteWithRetry(
   apiKey: string,
   flashModel: string,
   proModel: string,
-  extraContext?: string
+  extraContext?: string,
+  options?: {
+    useInteractions?: boolean;
+    fileSearchStoreName?: string;
+  }
 ) {
   const verified = await verifyNotes(note, transcript, apiKey, flashModel);
   if (verified.verified) {
@@ -132,7 +139,8 @@ async function verifyNoteWithRetry(
     transcript,
     apiKey,
     proModel,
-    extraContext
+    extraContext,
+    options
   );
 
   return verifyNotes(retried, transcript, apiKey, flashModel);
@@ -174,6 +182,44 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
     const blueprint = buildBlueprint(title, lectures);
     let researchReport;
 
+    const vaultDocs = inputs.vaultDocIds?.length
+      ? (await Promise.all(inputs.vaultDocIds.map((id) => getVaultDoc(id)))).filter(Boolean)
+      : [];
+    const baseContextParts = [
+      inputs.vaultNotes,
+      inputs.examDate ? `Exam date: ${inputs.examDate}` : ""
+    ].filter(Boolean);
+    const globalVaultContext = buildVaultContext(title, vaultDocs);
+    const globalContext = [...baseContextParts, globalVaultContext]
+      .filter(Boolean)
+      .join("\n")
+      .slice(0, 20000);
+
+    let fileSearchStoreName: string | undefined;
+    if (inputs.options.useFileSearch && (vaultDocs.length || inputs.vaultNotes)) {
+      await updateJob(jobId, {
+        step: "Indexing vault for file search",
+        progress: 0.12
+      });
+      try {
+        fileSearchStoreName = await createFileSearchStore(
+          inputs.geminiApiKey,
+          `${title} Vault`
+        );
+        await uploadVaultDocsToStore({
+          apiKey: inputs.geminiApiKey,
+          storeName: fileSearchStoreName,
+          docs: vaultDocs,
+          extraText: inputs.vaultNotes
+        });
+        await updateJob(jobId, { fileSearchStoreName });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "File search failed";
+        jobErrors = [...jobErrors, `File search error: ${message}`];
+        await updateJob(jobId, { errors: jobErrors });
+      }
+    }
+
     if (inputs.options.includeResearch) {
       await updateJob(jobId, {
         step: "Building research blueprint",
@@ -213,18 +259,6 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
 
     const notes = [] as Pack["notes"];
     const transcripts: Record<string, TranscriptSegment[]> = {};
-    const vaultDocs = inputs.vaultDocIds?.length
-      ? (await Promise.all(inputs.vaultDocIds.map((id) => getVaultDoc(id)))).filter(Boolean)
-      : [];
-    const baseContextParts = [
-      inputs.vaultNotes,
-      inputs.examDate ? `Exam date: ${inputs.examDate}` : ""
-    ].filter(Boolean);
-    const globalVaultContext = buildVaultContext(title, vaultDocs);
-    const globalContext = [...baseContextParts, globalVaultContext]
-      .filter(Boolean)
-      .join("\n")
-      .slice(0, 20000);
 
     for (let index = 0; index < lectures.length; index += 1) {
       const lecture = lectures[index];
@@ -274,7 +308,11 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
           segments,
           inputs.geminiApiKey,
           inputs.models.pro,
-          lectureContext
+          lectureContext,
+          {
+            useInteractions: inputs.options.useInteractions,
+            fileSearchStoreName
+          }
         );
 
         const verified = await verifyNoteWithRetry(
@@ -283,7 +321,11 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
           inputs.geminiApiKey,
           inputs.models.flash,
           inputs.models.pro,
-          lectureContext
+          lectureContext,
+          {
+            useInteractions: inputs.options.useInteractions,
+            fileSearchStoreName
+          }
         );
 
         let visuals = [] as Pack["notes"][number]["visuals"];
@@ -337,7 +379,11 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
       inputs.geminiApiKey,
       inputs.models.pro,
       4,
-      globalContext
+      globalContext,
+      {
+        useInteractions: inputs.options.useInteractions,
+        fileSearchStoreName
+      }
     );
 
     await updateJob(jobId, {
@@ -375,7 +421,11 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
               inputs.models.pro,
               issues,
               globalContext,
-              current.id
+              current.id,
+              {
+                useInteractions: inputs.options.useInteractions,
+                fileSearchStoreName
+              }
             );
             verified = await verifyQuestion(
               current,
@@ -417,7 +467,11 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
         inputs.geminiApiKey,
         inputs.models.pro,
         1,
-        globalContext
+        globalContext,
+        {
+          useInteractions: inputs.options.useInteractions,
+          fileSearchStoreName
+        }
       );
       for (const question of extraQuestions) {
         const verified = await verifyQuestion(
@@ -459,7 +513,8 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
       exam,
       mastery,
       researchReport,
-      exports: {}
+      exports: {},
+      fileSearchStoreName
     };
 
     await setPack(pack);

@@ -13,6 +13,7 @@
   - Blueprint weights.
   - Notes with timestamp citations and visuals.
   - Question bank with evidence links.
+  - File Search grounding (if vault docs uploaded).
 
 ## 1:40 - 2:20 (Mock exam + remediation)
 - Start the timed mock exam, answer two questions.

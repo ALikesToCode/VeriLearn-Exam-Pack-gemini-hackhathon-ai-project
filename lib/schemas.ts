@@ -26,6 +26,8 @@ export const generatePackSchema = z.object({
       includeCoach: z.boolean().default(true),
       includeAssist: z.boolean().default(false),
       useCodeExecution: z.boolean().default(false),
+      useFileSearch: z.boolean().default(false),
+      useInteractions: z.boolean().default(false),
       simulateDelayMs: z.number().int().min(0).max(2500).default(250)
     })
     .optional()

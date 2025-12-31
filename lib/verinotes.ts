@@ -1,4 +1,5 @@
 import { generateJson } from "./gemini";
+import { generateInteractionJson } from "./interactions";
 import { buildTranscriptText } from "./transcript";
 import {
   Citation,
@@ -7,6 +8,7 @@ import {
   NoteSection,
   TranscriptSegment
 } from "./types";
+import { buildFileSearchTools } from "./tools";
 
 const NOTE_SCHEMA = {
   type: "object",
@@ -63,7 +65,11 @@ export async function generateNotes(
   segments: TranscriptSegment[],
   apiKey: string,
   model: string,
-  extraContext?: string
+  extraContext?: string,
+  options?: {
+    useInteractions?: boolean;
+    fileSearchStoreName?: string;
+  }
 ): Promise<NoteDocument> {
   const transcriptText = buildTranscriptText(segments);
   const prompt = `You are producing exam-ready notes for a lecture.
@@ -78,22 +84,41 @@ ${transcriptText}
 ${extraContext ? `Additional context:\n${extraContext}` : ""}
 Return JSON matching the schema.`;
 
-  const response = await generateJson<{
-    summary: string;
-    sections: NoteSection[];
-    keyTakeaways: string[];
-    citations: { label: string; timestamp: string; snippet?: string }[];
-  }>({
-    apiKey,
-    model,
-    prompt,
-    config: {
-      responseSchema: NOTE_SCHEMA,
-      maxOutputTokens: 1400,
-      temperature: 0.4,
-      retry: { maxRetries: 2, baseDelayMs: 600 }
-    }
-  });
+  const response = options?.useInteractions && !options.fileSearchStoreName
+    ? await generateInteractionJson<{
+        summary: string;
+        sections: NoteSection[];
+        keyTakeaways: string[];
+        citations: { label: string; timestamp: string; snippet?: string }[];
+      }>({
+        apiKey,
+        model,
+        prompt,
+        schema: NOTE_SCHEMA,
+        config: {
+          maxOutputTokens: 1400,
+          temperature: 0.4
+        }
+      })
+    : await generateJson<{
+        summary: string;
+        sections: NoteSection[];
+        keyTakeaways: string[];
+        citations: { label: string; timestamp: string; snippet?: string }[];
+      }>({
+        apiKey,
+        model,
+        prompt,
+        tools: options?.fileSearchStoreName
+          ? buildFileSearchTools(options.fileSearchStoreName)
+          : undefined,
+        config: {
+          responseSchema: NOTE_SCHEMA,
+          maxOutputTokens: 1400,
+          temperature: 0.4,
+          retry: { maxRetries: 2, baseDelayMs: 600 }
+        }
+      });
 
   const citations = response.citations.map((item) => toCitation(lecture, item));
 

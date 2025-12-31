@@ -1,4 +1,6 @@
 import { generateJson } from "./gemini";
+import { generateInteractionJson } from "./interactions";
+import { buildFileSearchTools } from "./tools";
 import { Question, NoteDocument, Lecture } from "./types";
 
 const QUESTION_SCHEMA = {
@@ -128,7 +130,11 @@ export async function generateQuestionBank(
   apiKey: string,
   model: string,
   perLecture = 4,
-  extraContext?: string
+  extraContext?: string,
+  options?: {
+    useInteractions?: boolean;
+    fileSearchStoreName?: string;
+  }
 ): Promise<Question[]> {
   const questions: Question[] = [];
 
@@ -141,30 +147,57 @@ Use the timestamps in citations.
 ${extraContext ? `Additional context:\n${extraContext}` : ""}
 Return JSON matching the schema.`;
 
-    const response = await generateJson<{
-      questions: Array<{
-        type: Question["type"];
-        difficulty: Question["difficulty"];
-        bloom: Question["bloom"];
-        timeSeconds: number;
-        tags: string[];
-        stem: string;
-        options?: Question["options"];
-        answer: string;
-        rationale: string;
-        citations: { label: string; timestamp: string; snippet?: string }[];
-      }>;
-    }>({
-      apiKey,
-      model,
-      prompt,
-      config: {
-        responseSchema: QUESTION_SCHEMA,
-        maxOutputTokens: 1800,
-        temperature: 0.45,
-        retry: { maxRetries: 2, baseDelayMs: 700 }
-      }
-    });
+    const response = options?.useInteractions && !options.fileSearchStoreName
+      ? await generateInteractionJson<{
+          questions: Array<{
+            type: Question["type"];
+            difficulty: Question["difficulty"];
+            bloom: Question["bloom"];
+            timeSeconds: number;
+            tags: string[];
+            stem: string;
+            options?: Question["options"];
+            answer: string;
+            rationale: string;
+            citations: { label: string; timestamp: string; snippet?: string }[];
+          }>;
+        }>({
+          apiKey,
+          model,
+          prompt,
+          schema: QUESTION_SCHEMA,
+          config: {
+            maxOutputTokens: 1800,
+            temperature: 0.45
+          }
+        })
+      : await generateJson<{
+          questions: Array<{
+            type: Question["type"];
+            difficulty: Question["difficulty"];
+            bloom: Question["bloom"];
+            timeSeconds: number;
+            tags: string[];
+            stem: string;
+            options?: Question["options"];
+            answer: string;
+            rationale: string;
+            citations: { label: string; timestamp: string; snippet?: string }[];
+          }>;
+        }>({
+          apiKey,
+          model,
+          prompt,
+          tools: options?.fileSearchStoreName
+            ? buildFileSearchTools(options.fileSearchStoreName)
+            : undefined,
+          config: {
+            responseSchema: QUESTION_SCHEMA,
+            maxOutputTokens: 1800,
+            temperature: 0.45,
+            retry: { maxRetries: 2, baseDelayMs: 700 }
+          }
+        });
 
     response.questions.forEach((item, index) => {
       const citations = item.citations.map((citation) =>
@@ -211,7 +244,11 @@ export async function regenerateQuestion(
   model: string,
   issues: string,
   extraContext?: string,
-  existingId?: string
+  existingId?: string,
+  options?: {
+    useInteractions?: boolean;
+    fileSearchStoreName?: string;
+  }
 ): Promise<Question> {
   const prompt = `Regenerate one exam question for this lecture notes. Fix these issues: ${issues}.
 Lecture: ${note.lectureTitle}
@@ -221,28 +258,53 @@ Use the timestamps in citations.
 ${extraContext ? `Additional context:\n${extraContext}` : ""}
 Return JSON matching the schema.`;
 
-  const response = await generateJson<{
-    type: Question["type"];
-    difficulty: Question["difficulty"];
-    bloom: Question["bloom"];
-    timeSeconds: number;
-    tags: string[];
-    stem: string;
-    options?: Question["options"];
-    answer: string;
-    rationale: string;
-    citations: { label: string; timestamp: string; snippet?: string }[];
-  }>({
-    apiKey,
-    model,
-    prompt,
-    config: {
-      responseSchema: SINGLE_QUESTION_SCHEMA,
-      maxOutputTokens: 1200,
-      temperature: 0.45,
-      retry: { maxRetries: 2, baseDelayMs: 700 }
-    }
-  });
+  const response = options?.useInteractions && !options.fileSearchStoreName
+    ? await generateInteractionJson<{
+        type: Question["type"];
+        difficulty: Question["difficulty"];
+        bloom: Question["bloom"];
+        timeSeconds: number;
+        tags: string[];
+        stem: string;
+        options?: Question["options"];
+        answer: string;
+        rationale: string;
+        citations: { label: string; timestamp: string; snippet?: string }[];
+      }>({
+        apiKey,
+        model,
+        prompt,
+        schema: SINGLE_QUESTION_SCHEMA,
+        config: {
+          maxOutputTokens: 1200,
+          temperature: 0.45
+        }
+      })
+    : await generateJson<{
+        type: Question["type"];
+        difficulty: Question["difficulty"];
+        bloom: Question["bloom"];
+        timeSeconds: number;
+        tags: string[];
+        stem: string;
+        options?: Question["options"];
+        answer: string;
+        rationale: string;
+        citations: { label: string; timestamp: string; snippet?: string }[];
+      }>({
+        apiKey,
+        model,
+        prompt,
+        tools: options?.fileSearchStoreName
+          ? buildFileSearchTools(options.fileSearchStoreName)
+          : undefined,
+        config: {
+          responseSchema: SINGLE_QUESTION_SCHEMA,
+          maxOutputTokens: 1200,
+          temperature: 0.45,
+          retry: { maxRetries: 2, baseDelayMs: 700 }
+        }
+      });
 
   const tags = response.tags.includes(note.lectureTitle)
     ? response.tags

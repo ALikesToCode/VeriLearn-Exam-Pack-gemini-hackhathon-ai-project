@@ -41,7 +41,7 @@ export type VisualReference = {
   url: string;
   timestamp: string;
   description: string;
-  kind?: "thumbnail" | "storyboard";
+  kind?: "thumbnail" | "storyboard" | "frame";
   sprite?: VisualSprite;
 };
 
@@ -121,6 +121,7 @@ export type Pack = {
   mastery: Record<string, MasteryRecord>;
   researchReport?: ResearchReport;
   exports?: ExportLinks;
+  fileSearchStoreName?: string;
 };
 
 export type JobStatus = {
@@ -133,6 +134,7 @@ export type JobStatus = {
   packId?: string;
   errors: string[];
   traceId?: string;
+  fileSearchStoreName?: string;
   createdAt: string;
   updatedAt: string;
   currentLecture?: string;
@@ -155,6 +157,8 @@ export type GeneratePackOptions = {
   includeCoach: boolean;
   includeAssist: boolean;
   useCodeExecution?: boolean;
+  useFileSearch?: boolean;
+  useInteractions?: boolean;
   simulateDelayMs: number;
 };
 

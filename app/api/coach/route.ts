@@ -3,6 +3,8 @@ import { coachSchema } from "../../../lib/schemas";
 import { getPack } from "../../../lib/store";
 import { buildCoachPrompt } from "../../../lib/coach";
 import { fetchResearchSources } from "../../../lib/research";
+import { runAssistTools } from "../../../lib/assistTools";
+import { buildComputerUseTools, buildFileSearchTools } from "../../../lib/tools";
 import { streamText } from "../../../lib/gemini";
 import { makeId } from "../../../lib/utils";
 
@@ -36,21 +38,33 @@ export async function POST(request: Request) {
 
   let enrichedPrompt = prompt;
   if (parsed.data.mode === "assist") {
+    const toolContext = await runAssistTools(parsed.data.message);
     const urls = parsed.data.message.match(/https?:\/\/[^\s]+/g) ?? [];
     if (urls.length) {
       const sources = await fetchResearchSources(urls.slice(0, 2));
       const appendix = sources
         .map((source) => `URL: ${source.url}\nExcerpt: ${source.excerpt}`)
         .join("\n\n");
-      enrichedPrompt = `${prompt}\n\nAdditional resources:\n${appendix}`;
+      enrichedPrompt = `${enrichedPrompt}\n\nAdditional resources:\n${appendix}`;
+    }
+    if (toolContext) {
+      enrichedPrompt = `${enrichedPrompt}\n\nAssist tool results:\n${toolContext}`;
     }
   }
+
+  const tools = [
+    ...(parsed.data.mode === "assist" ? buildComputerUseTools() : []),
+    ...(pack.fileSearchStoreName
+      ? buildFileSearchTools(pack.fileSearchStoreName)
+      : [])
+  ];
 
   const textStream = await streamText({
     apiKey: parsed.data.geminiApiKey,
     model: parsed.data.model,
     prompt: enrichedPrompt,
     system,
+    tools: tools.length ? tools : undefined,
     config: {
       temperature: 0.5,
       maxOutputTokens: 800,

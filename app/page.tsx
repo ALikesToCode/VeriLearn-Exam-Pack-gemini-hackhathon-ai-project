@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   GradeResult,
   JobStatus,
@@ -44,6 +44,8 @@ export default function Home() {
   const [includeCoach, setIncludeCoach] = useState(true);
   const [includeAssist, setIncludeAssist] = useState(false);
   const [useCodeExecution, setUseCodeExecution] = useState(false);
+  const [useFileSearch, setUseFileSearch] = useState(false);
+  const [useInteractions, setUseInteractions] = useState(false);
   const [resumeJobId, setResumeJobId] = useState("");
 
   const [youtubeApiKey, setYoutubeApiKey] = useState("");
@@ -71,6 +73,10 @@ export default function Home() {
   const [coachMessages, setCoachMessages] = useState<CoachMessage[]>([]);
   const [coachBusy, setCoachBusy] = useState(false);
   const [coachSessionId, setCoachSessionId] = useState<string | null>(null);
+  const [useWebSocket, setUseWebSocket] = useState(false);
+  const [useLiveApi, setUseLiveApi] = useState(false);
+  const [wsStatus, setWsStatus] = useState<"idle" | "connecting" | "open" | "error">("idle");
+  const wsRef = useRef<WebSocket | null>(null);
 
   const progressPercent = job ? Math.round(job.progress * 100) : 0;
   const spriteScale = 2;
@@ -244,6 +250,83 @@ export default function Home() {
     setCoachMessages([]);
   }, [coachMode, pack?.id]);
 
+  useEffect(() => {
+    if (!useWebSocket) {
+      setUseLiveApi(false);
+    }
+  }, [useWebSocket]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!useWebSocket || !pack || !geminiApiKey) {
+      wsRef.current?.close();
+      wsRef.current = null;
+      setWsStatus("idle");
+      return;
+    }
+
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${protocol}://${window.location.host}/ws/coach`);
+    wsRef.current = ws;
+    setWsStatus("connecting");
+
+    ws.onopen = () => {
+      setWsStatus("open");
+      ws.send(
+        JSON.stringify({
+          type: "init",
+          packId: pack.id,
+          mode: coachMode,
+          geminiApiKey,
+          model: proModel,
+          useLive: useLiveApi
+        })
+      );
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data) as {
+          type: "chunk" | "done" | "error";
+          content?: string;
+          message?: string;
+        };
+        if (data.type === "chunk" && data.content) {
+          setCoachMessages((prev) => {
+            if (!prev.length) return prev;
+            const next = prev.slice(0, -1);
+            const last = prev[prev.length - 1];
+            if (last.role !== "assistant") return prev;
+            return [...next, { ...last, content: `${last.content}${data.content}` }];
+          });
+        }
+        if (data.type === "done") {
+          setCoachBusy(false);
+        }
+        if (data.type === "error") {
+          setCoachBusy(false);
+          setWsStatus("error");
+        }
+      } catch {
+        // ignore malformed messages
+      }
+    };
+
+    ws.onerror = () => {
+      setWsStatus("error");
+      setCoachBusy(false);
+    };
+
+    ws.onclose = () => {
+      setWsStatus("idle");
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [useWebSocket, pack?.id, coachMode, geminiApiKey, proModel, useLiveApi]);
+
   const handleGenerate = async () => {
     if (!youtubeApiKey || !geminiApiKey) {
       setError("Provide both YouTube and Gemini API keys.");
@@ -304,7 +387,9 @@ export default function Home() {
           includeResearch,
           includeCoach,
           includeAssist,
-          useCodeExecution
+          useCodeExecution,
+          useFileSearch,
+          useInteractions
         }
       })
     });
@@ -427,6 +512,16 @@ export default function Home() {
     setCoachMessages([...history, { role: "user", content: message }, { role: "assistant", content: "" }]);
     setCoachBusy(true);
 
+    if (useWebSocket && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: "message",
+          content: message
+        })
+      );
+      return;
+    }
+
     let sessionId = coachSessionId;
     if (!sessionId) {
       const sessionResponse = await fetch("/api/coach/session", {
@@ -482,6 +577,12 @@ export default function Home() {
     }
     setCoachSessionId(null);
     setCoachMessages([]);
+    setCoachBusy(false);
+    if (useWebSocket) {
+      wsRef.current?.close();
+      wsRef.current = null;
+      setWsStatus("idle");
+    }
   };
 
   const handleLoadPack = async (packId: string) => {
@@ -684,6 +785,22 @@ export default function Home() {
                     />
                     <span>Use code execution tool</span>
                   </label>
+                  <label className="option">
+                    <input
+                      type="checkbox"
+                      checked={useFileSearch}
+                      onChange={(event) => setUseFileSearch(event.target.checked)}
+                    />
+                    <span>Use file search (vault)</span>
+                  </label>
+                  <label className="option">
+                    <input
+                      type="checkbox"
+                      checked={useInteractions}
+                      onChange={(event) => setUseInteractions(event.target.checked)}
+                    />
+                    <span>Use Interactions API</span>
+                  </label>
                 </div>
               </div>
               <div className="form-row">
@@ -763,6 +880,9 @@ export default function Home() {
               {job?.currentLecture ? <p>Now: {job.currentLecture}</p> : null}
               {job?.id ? <p className="muted">Job ID: {job.id}</p> : null}
               {job?.traceId ? <p className="muted">Trace ID: {job.traceId}</p> : null}
+              {job?.fileSearchStoreName ? (
+                <p className="muted">File search: {job.fileSearchStoreName}</p>
+              ) : null}
             </div>
             <div>
               <div className="progress">
@@ -1141,6 +1261,26 @@ export default function Home() {
                     <option value="viva">Oral Viva</option>
                     <option value="assist">Assist</option>
                   </select>
+                </div>
+                <div className="form-row">
+                  <label className="option">
+                    <input
+                      type="checkbox"
+                      checked={useWebSocket}
+                      onChange={(event) => setUseWebSocket(event.target.checked)}
+                    />
+                    <span>Use WebSocket (local dev)</span>
+                  </label>
+                  <label className="option">
+                    <input
+                      type="checkbox"
+                      checked={useLiveApi}
+                      onChange={(event) => setUseLiveApi(event.target.checked)}
+                      disabled={!useWebSocket}
+                    />
+                    <span>Use Gemini Live API (WS only)</span>
+                  </label>
+                  <p className="muted">WS status: {wsStatus}</p>
                 </div>
                 <p className="kicker">
                   Live session: {coachSessionId ? "Active" : "Not started"}

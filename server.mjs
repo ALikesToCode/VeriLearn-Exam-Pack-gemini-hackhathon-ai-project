@@ -30,7 +30,7 @@ app.prepare().then(() => {
       packId: "",
       mode: "coach",
       geminiApiKey: "",
-      model: "gemini-3-pro",
+      model: "gemini-3-pro-preview",
       history: [],
       useLive: false,
       researchApiKey: "",
@@ -48,7 +48,7 @@ app.prepare().then(() => {
           session.packId = payload.packId ?? "";
           session.mode = payload.mode ?? "coach";
           session.geminiApiKey = payload.geminiApiKey ?? "";
-          session.model = payload.model ?? "gemini-3-pro";
+          session.model = payload.model ?? "gemini-3-pro-preview";
           session.useLive = Boolean(payload.useLive);
           session.researchApiKey = payload.researchApiKey ?? "";
           session.researchQuery = payload.researchQuery ?? "";

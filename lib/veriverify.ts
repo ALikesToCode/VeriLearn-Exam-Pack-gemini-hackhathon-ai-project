@@ -95,7 +95,7 @@ Return JSON matching the schema.`;
     apiKey,
     model,
     prompt,
-    tools: wantsCodeExecution ? [{ codeExecution: {} }] : undefined,
+    tools: wantsCodeExecution ? [{ code_execution: {} }] : undefined,
     config: {
       responseSchema: VERIFY_SCHEMA,
       temperature: 0.2,

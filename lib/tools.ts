@@ -1,9 +1,9 @@
 export function buildFileSearchTools(storeName: string) {
   return [
     {
-      fileSearch: {
-        fileSearchStoreNames: [storeName],
-        topK: 6
+      file_search: {
+        file_search_store_names: [storeName],
+        top_k: 6
       }
     }
   ];
@@ -12,7 +12,7 @@ export function buildFileSearchTools(storeName: string) {
 export function buildComputerUseTools() {
   return [
     {
-      computerUse: {}
+      computer_use: {}
     }
   ];
 }
@@ -20,7 +20,7 @@ export function buildComputerUseTools() {
 export function buildCodeExecutionTools() {
   return [
     {
-      codeExecution: {}
+      code_execution: {}
     }
   ];
 }

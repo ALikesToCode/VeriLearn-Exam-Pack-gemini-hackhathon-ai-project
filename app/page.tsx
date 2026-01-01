@@ -19,8 +19,8 @@ import { JobProgress } from "../components/features/JobProgress";
 import { PackViewer } from "../components/features/PackViewer";
 
 const DEFAULT_INPUT = "https://youtube.com/playlist?list=PL123_VERILEARN";
-const DEFAULT_PRO_MODEL = "gemini-3-pro";
-const DEFAULT_FLASH_MODEL = "gemini-3-flash";
+const DEFAULT_PRO_MODEL = "gemini-3-pro-preview";
+const DEFAULT_FLASH_MODEL = "gemini-3-flash-preview";
 
 const STORAGE_KEYS = {
   youtube: "verilearn_youtube_key",

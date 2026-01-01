@@ -5,6 +5,7 @@ type GenerationConfig = {
   maxOutputTokens?: number;
   responseMimeType?: string;
   responseSchema?: Record<string, unknown>;
+  responseJsonSchema?: Record<string, unknown>;
   retry?: {
     maxRetries?: number;
     baseDelayMs?: number;
@@ -35,11 +36,18 @@ function buildPayload(options: GenerateOptions) {
   }
 
   if (options.config) {
-    const { responseMimeType, responseSchema, ...rest } = options.config;
+    const {
+      responseMimeType,
+      responseSchema,
+      responseJsonSchema,
+      retry,
+      ...rest
+    } = options.config;
+    const resolvedSchema = responseJsonSchema ?? responseSchema;
     payload.generationConfig = {
       ...rest,
-      ...(responseMimeType ? { response_mime_type: responseMimeType } : {}),
-      ...(responseSchema ? { response_schema: responseSchema } : {})
+      ...(responseMimeType ? { responseMimeType } : {}),
+      ...(resolvedSchema ? { responseJsonSchema: resolvedSchema } : {})
     };
   }
 

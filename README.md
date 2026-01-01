@@ -63,7 +63,7 @@ The WebSocket gateway can optionally use Gemini Live API for text (toggle in the
 
 - Transcripts are fetched from YouTube timed text endpoints; some videos may not expose captions.
 - For best results, keep playlists under 20-30 lectures per run to avoid long generation times.
-- Models are configurable in the UI (defaults: `gemini-3-pro`, `gemini-3-flash`).
+- Models are configurable in the UI (defaults: `gemini-3-pro-preview`, `gemini-3-flash-preview`).
 - For Deep Research search, supply a Serper API key in the UI (optional).
 - File Search uses the Google Gen AI SDK and requires vault docs (optional).
 - Frame capture requires `ffmpeg` on PATH and `ENABLE_FRAME_CAPTURE=1`.

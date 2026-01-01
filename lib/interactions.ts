@@ -18,16 +18,27 @@ export async function generateInteractionText(options: {
   model: string;
   prompt: string;
   config?: InteractionConfig;
+  previousInteractionId?: string;
+  store?: boolean;
 }) {
   const ai = getGenAIClient(options.apiKey);
-  const interaction = await ai.interactions.create({
+  const payload: Record<string, unknown> = {
     model: options.model as any,
     input: options.prompt,
     generation_config: {
-      temperature: options.config?.temperature ?? 0.4,
+      temperature: options.config?.temperature,
       max_output_tokens: options.config?.maxOutputTokens ?? 1024
     }
-  });
+  };
+
+  if (options.previousInteractionId) {
+    payload.previous_interaction_id = options.previousInteractionId;
+  }
+  if (options.store !== undefined) {
+    payload.store = options.store;
+  }
+
+  const interaction = await ai.interactions.create(payload as any);
 
   return extractText(interaction.outputs as Array<{ type?: string; text?: string }>);
 }
@@ -38,18 +49,28 @@ export async function generateInteractionJson<T>(options: {
   prompt: string;
   schema: Record<string, unknown>;
   config?: InteractionConfig;
+  previousInteractionId?: string;
+  store?: boolean;
 }) {
   const ai = getGenAIClient(options.apiKey);
-  const interaction = await ai.interactions.create({
+  const payload: Record<string, unknown> = {
     model: options.model as any,
     input: options.prompt,
-    response_mime_type: "application/json",
     response_format: options.schema,
     generation_config: {
-      temperature: options.config?.temperature ?? 0.3,
+      temperature: options.config?.temperature,
       max_output_tokens: options.config?.maxOutputTokens ?? 2048
     }
-  });
+  };
+
+  if (options.previousInteractionId) {
+    payload.previous_interaction_id = options.previousInteractionId;
+  }
+  if (options.store !== undefined) {
+    payload.store = options.store;
+  }
+
+  const interaction = await ai.interactions.create(payload as any);
 
   const text = extractText(interaction.outputs as Array<{ type?: string; text?: string }>);
   if (!text) {

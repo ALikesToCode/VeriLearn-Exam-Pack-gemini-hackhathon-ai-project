@@ -37,7 +37,6 @@ Return JSON matching the schema.`;
     prompt,
     config: {
       responseSchema: VERIFY_SCHEMA,
-      temperature: 0.2,
       maxOutputTokens: 600,
       retry: { maxRetries: 2, baseDelayMs: 500 }
     }
@@ -98,7 +97,6 @@ Return JSON matching the schema.`;
     tools: wantsCodeExecution ? [{ code_execution: {} }] : undefined,
     config: {
       responseSchema: VERIFY_SCHEMA,
-      temperature: 0.2,
       maxOutputTokens: 400,
       retry: { maxRetries: 2, baseDelayMs: 500 }
     }

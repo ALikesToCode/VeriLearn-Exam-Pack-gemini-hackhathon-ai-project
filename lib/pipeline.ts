@@ -25,10 +25,16 @@ import {
   setTranscript,
   updateJob
 } from "./store";
-import { buildResearchReport, fetchResearchSources, searchResearchSources } from "./research";
+import {
+  buildDeepResearchReport,
+  buildResearchReport,
+  fetchResearchSources,
+  searchResearchSources
+} from "./research";
 import { buildVisualReferences } from "./storyboard";
 import { buildVaultContext } from "./vaultSearch";
 import { createFileSearchStore, uploadVaultDocsToStore } from "./fileSearchStore";
+import { buildVideoTranscriptFromUnderstanding } from "./videoUnderstanding";
 import { GeneratePackOptions, JobStatus, Pack, TranscriptSegment, VaultDoc } from "./types";
 
 export type PipelineInputs = {
@@ -57,6 +63,8 @@ export function normalizeOptions(options?: Partial<GeneratePackOptions>): Genera
     includeResearch: options?.includeResearch ?? false,
     includeCoach: options?.includeCoach ?? true,
     includeAssist: options?.includeAssist ?? false,
+    useDeepResearch: options?.useDeepResearch ?? false,
+    useVideoUnderstanding: options?.useVideoUnderstanding ?? false,
     useCodeExecution: options?.useCodeExecution ?? false,
     useFileSearch: options?.useFileSearch ?? false,
     useInteractions: options?.useInteractions ?? false,
@@ -227,23 +235,43 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
       });
 
       try {
-        let sources = [] as Awaited<ReturnType<typeof fetchResearchSources>>;
-        if (inputs.researchSources?.length) {
-          sources = await fetchResearchSources(inputs.researchSources);
-        } else if (inputs.researchApiKey) {
-          const query = inputs.researchQuery ?? `${title} syllabus past paper topics`;
-          const searchResults = await searchResearchSources(query, inputs.researchApiKey, 5);
-          const urls = searchResults.map((result) => result.url);
-          sources = await fetchResearchSources(urls, searchResults);
+        if (inputs.options.useDeepResearch) {
+          await updateJob(jobId, {
+            step: "Running Deep Research agent",
+            progress: 0.16
+          });
+          researchReport = await buildDeepResearchReport({
+            courseTitle: title,
+            apiKey: inputs.geminiApiKey,
+            onPoll: async (status) => {
+              await updateJob(jobId, {
+                step: `Deep Research ${status}`,
+                progress: 0.16
+              });
+            }
+          });
+        } else {
+          let sources = [] as Awaited<ReturnType<typeof fetchResearchSources>>;
+          if (inputs.researchSources?.length) {
+            sources = await fetchResearchSources(inputs.researchSources);
+          } else if (inputs.researchApiKey) {
+            const query = inputs.researchQuery ?? `${title} syllabus past paper topics`;
+            const searchResults = await searchResearchSources(query, inputs.researchApiKey, 5);
+            const urls = searchResults.map((result) => result.url);
+            sources = await fetchResearchSources(urls, searchResults);
+          }
+
+          if (sources.length) {
+            researchReport = await buildResearchReport(
+              title,
+              sources,
+              inputs.geminiApiKey,
+              inputs.models.pro
+            );
+          }
         }
 
-        if (sources.length) {
-          researchReport = await buildResearchReport(
-            title,
-            sources,
-            inputs.geminiApiKey,
-            inputs.models.pro
-          );
+        if (researchReport?.summary) {
           const researchBlueprint = await buildResearchBlueprint(
             title,
             lectures,
@@ -295,9 +323,32 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
         });
 
         const cached = await getTranscript(lecture.videoId);
-        const segments =
-          cached ??
-          (await fetchTranscriptSegments(lecture.videoId, inputs.options.language));
+        let segments: TranscriptSegment[] | null = cached;
+
+        if (!segments && inputs.options.useVideoUnderstanding) {
+          await updateJob(jobId, {
+            step: `Analyzing ${lecture.title} with Gemini video understanding`
+          });
+          try {
+            segments = await buildVideoTranscriptFromUnderstanding({
+              videoUrl: lecture.url || `https://www.youtube.com/watch?v=${lecture.videoId}`,
+              lectureTitle: lecture.title,
+              apiKey: inputs.geminiApiKey,
+              model: inputs.models.flash
+            });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Video understanding failed";
+            jobErrors = [...jobErrors, `Video understanding error: ${message}`];
+            await updateJob(jobId, { errors: jobErrors });
+          }
+        }
+
+        if (!segments) {
+          segments = await fetchTranscriptSegments(
+            lecture.videoId,
+            inputs.options.language
+          );
+        }
         transcripts[lecture.id] = segments;
         if (!cached) {
           await setTranscript(lecture.videoId, segments);

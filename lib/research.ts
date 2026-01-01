@@ -1,4 +1,6 @@
 import { generateJson } from "./gemini";
+import { getGenAIClient } from "./genaiClient";
+import { delay } from "./utils";
 import { ResearchReport, ResearchSource } from "./types";
 
 const REPORT_SCHEMA = {
@@ -20,6 +22,8 @@ const REPORT_SCHEMA = {
   },
   required: ["summary", "sources"]
 };
+
+const DEEP_RESEARCH_AGENT = "deep-research-pro-preview-12-2025";
 
 function stripHtml(html: string) {
   return html
@@ -109,10 +113,97 @@ Return JSON matching the schema.`;
     config: {
       responseSchema: REPORT_SCHEMA,
       maxOutputTokens: 1200,
-      temperature: 0.4,
       retry: { maxRetries: 2, baseDelayMs: 700 }
     }
   });
 
   return response;
+}
+
+function extractInteractionText(outputs?: Array<{ type?: string; text?: string }>) {
+  if (!outputs?.length) return "";
+  return outputs
+    .filter((item) => item.type === "text")
+    .map((item) => item.text ?? "")
+    .join("");
+}
+
+function extractJsonBlock(text: string) {
+  const fenced = text.match(/```json\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) return fenced[1].trim();
+  const match = text.match(/\{[\s\S]*\}/);
+  return match?.[0] ?? "";
+}
+
+function normalizeSources(raw: unknown): ResearchSource[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => ({
+      title: typeof item?.title === "string" ? item.title : "Source",
+      url: typeof item?.url === "string" ? item.url : "",
+      excerpt: typeof item?.excerpt === "string" ? item.excerpt : ""
+    }))
+    .filter((item) => item.url);
+}
+
+export async function buildDeepResearchReport(options: {
+  courseTitle: string;
+  apiKey: string;
+  prompt?: string;
+  agent?: string;
+  pollIntervalMs?: number;
+  timeoutMs?: number;
+  onPoll?: (status: string) => void | Promise<void>;
+}): Promise<ResearchReport> {
+  const ai = getGenAIClient(options.apiKey);
+  const prompt =
+    options.prompt ??
+    `Research the syllabus and past papers for ${options.courseTitle}.
+Summarize the core topics, exam focus areas, and study priorities.
+Return JSON with summary and sources (title, url, excerpt) matching the schema.`;
+
+  // @ts-ignore
+  const initial = await ai.interactions.create({
+    agent: options.agent ?? DEEP_RESEARCH_AGENT,
+    input: prompt,
+    background: true
+  });
+
+  const start = Date.now();
+  let current = initial;
+  const timeoutMs = options.timeoutMs ?? 6 * 60 * 1000;
+  const pollIntervalMs = options.pollIntervalMs ?? 10_000;
+
+  while (current.status && current.status !== "completed") {
+    if (current.status === "failed" || current.status === "cancelled") {
+      throw new Error(`Deep research ${current.status}.`);
+    }
+    if (Date.now() - start > timeoutMs) {
+      throw new Error("Deep research timed out.");
+    }
+    if (options.onPoll) {
+      await options.onPoll(current.status);
+    }
+    await delay(pollIntervalMs);
+    // @ts-ignore
+    current = await ai.interactions.get(initial.id);
+  }
+
+  const text = extractInteractionText(current.outputs as Array<{ type?: string; text?: string }>);
+  const jsonBlock = extractJsonBlock(text);
+  let parsed: ResearchReport | null = null;
+  if (jsonBlock) {
+    try {
+      parsed = JSON.parse(jsonBlock) as ResearchReport;
+    } catch {
+      parsed = null;
+    }
+  }
+
+  const summary = parsed?.summary?.trim() || text.trim();
+  const sources = normalizeSources(parsed?.sources);
+  return {
+    summary,
+    sources
+  };
 }

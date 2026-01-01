@@ -25,6 +25,8 @@ export const generatePackSchema = z.object({
       includeResearch: z.boolean().default(false),
       includeCoach: z.boolean().default(true),
       includeAssist: z.boolean().default(false),
+      useDeepResearch: z.boolean().default(false),
+      useVideoUnderstanding: z.boolean().default(false),
       useCodeExecution: z.boolean().default(false),
       useFileSearch: z.boolean().default(false),
       useInteractions: z.boolean().default(false),

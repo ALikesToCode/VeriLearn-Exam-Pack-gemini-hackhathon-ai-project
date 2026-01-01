@@ -162,16 +162,15 @@ Return JSON matching the schema.`;
             citations: { label: string; timestamp: string; snippet?: string }[];
           }>;
         }>({
-          apiKey,
-          model,
-          prompt,
-          schema: QUESTION_SCHEMA,
-          config: {
-            maxOutputTokens: 1800,
-            temperature: 0.45
-          }
-        })
-      : await generateJson<{
+        apiKey,
+        model,
+        prompt,
+        schema: QUESTION_SCHEMA,
+        config: {
+          maxOutputTokens: 1800
+        }
+      })
+    : await generateJson<{
           questions: Array<{
             type: Question["type"];
             difficulty: Question["difficulty"];
@@ -191,13 +190,12 @@ Return JSON matching the schema.`;
           tools: options?.fileSearchStoreName
             ? buildFileSearchTools(options.fileSearchStoreName)
             : undefined,
-          config: {
-            responseSchema: QUESTION_SCHEMA,
-            maxOutputTokens: 1800,
-            temperature: 0.45,
-            retry: { maxRetries: 2, baseDelayMs: 700 }
-          }
-        });
+        config: {
+          responseSchema: QUESTION_SCHEMA,
+          maxOutputTokens: 1800,
+          retry: { maxRetries: 2, baseDelayMs: 700 }
+        }
+      });
 
     response.questions.forEach((item, index) => {
       const citations = item.citations.map((citation) =>
@@ -276,8 +274,7 @@ Return JSON matching the schema.`;
         prompt,
         schema: SINGLE_QUESTION_SCHEMA,
         config: {
-          maxOutputTokens: 1200,
-          temperature: 0.45
+          maxOutputTokens: 1200
         }
       })
     : await generateJson<{
@@ -301,7 +298,6 @@ Return JSON matching the schema.`;
         config: {
           responseSchema: SINGLE_QUESTION_SCHEMA,
           maxOutputTokens: 1200,
-          temperature: 0.45,
           retry: { maxRetries: 2, baseDelayMs: 700 }
         }
       });

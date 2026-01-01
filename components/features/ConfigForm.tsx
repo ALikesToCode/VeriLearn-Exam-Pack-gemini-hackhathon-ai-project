@@ -24,6 +24,29 @@ interface ConfigFormProps {
     // Advanced Settings toggles (could be expanded)
     researchSources: string;
     setResearchSources: (val: string) => void;
+    includeResearch: boolean;
+    setIncludeResearch: (val: boolean) => void;
+    researchApiKey: string;
+    setResearchApiKey: (val: string) => void;
+    researchQuery: string;
+    setResearchQuery: (val: string) => void;
+    useDeepResearch: boolean;
+    setUseDeepResearch: (val: boolean) => void;
+    useVideoUnderstanding: boolean;
+    setUseVideoUnderstanding: (val: boolean) => void;
+    useFileSearch: boolean;
+    setUseFileSearch: (val: boolean) => void;
+    useCodeExecution: boolean;
+    setUseCodeExecution: (val: boolean) => void;
+    useInteractions: boolean;
+    setUseInteractions: (val: boolean) => void;
+    vaultNotes: string;
+    setVaultNotes: (val: string) => void;
+    vaultFiles: File[];
+    setVaultFiles: (files: File[]) => void;
+    vaultDocs: Array<{ id: string; name: string; chars: number }>;
+    onVaultUpload: () => void;
+    vaultUploadBusy: boolean;
 
     onGenerate: () => void;
     isSubmitting: boolean;
@@ -39,6 +62,19 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     youtubeApiKey, setYoutubeApiKey,
     browserUseApiKey, setBrowserUseApiKey,
     researchSources, setResearchSources,
+    includeResearch, setIncludeResearch,
+    researchApiKey, setResearchApiKey,
+    researchQuery, setResearchQuery,
+    useDeepResearch, setUseDeepResearch,
+    useVideoUnderstanding, setUseVideoUnderstanding,
+    useFileSearch, setUseFileSearch,
+    useCodeExecution, setUseCodeExecution,
+    useInteractions, setUseInteractions,
+    vaultNotes, setVaultNotes,
+    vaultFiles, setVaultFiles,
+    vaultDocs,
+    onVaultUpload,
+    vaultUploadBusy,
     onGenerate, isSubmitting, error
 }) => {
     return (
@@ -120,6 +156,42 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                             onChange={(e) => setResearchSources(e.target.value)}
                             rows={4}
                         />
+                        <div className="grid gap-3">
+                            <label className="flex items-center gap-2 text-sm text-slate-600">
+                                <input
+                                    type="checkbox"
+                                    checked={includeResearch}
+                                    onChange={(e) => setIncludeResearch(e.target.checked)}
+                                />
+                                <span>Include research blueprint</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-slate-600">
+                                <input
+                                    type="checkbox"
+                                    checked={useDeepResearch}
+                                    disabled={!includeResearch}
+                                    onChange={(e) => setUseDeepResearch(e.target.checked)}
+                                />
+                                <span>Use Deep Research agent (Gemini)</span>
+                            </label>
+                            {includeResearch ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <Input
+                                        label="Research API Key (Serper)"
+                                        type="password"
+                                        placeholder="serper_..."
+                                        value={researchApiKey}
+                                        onChange={(e) => setResearchApiKey(e.target.value)}
+                                    />
+                                    <Input
+                                        label="Research Query (Optional)"
+                                        placeholder="syllabus, exam topics"
+                                        value={researchQuery}
+                                        onChange={(e) => setResearchQuery(e.target.value)}
+                                    />
+                                </div>
+                            ) : null}
+                        </div>
                         <Input
                             label="Browser Use API Key (optional)"
                             type="password"
@@ -127,6 +199,72 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                             value={browserUseApiKey}
                             onChange={(e) => setBrowserUseApiKey(e.target.value)}
                         />
+                        <div className="grid gap-3">
+                            <label className="flex items-center gap-2 text-sm text-slate-600">
+                                <input
+                                    type="checkbox"
+                                    checked={useVideoUnderstanding}
+                                    onChange={(e) => setUseVideoUnderstanding(e.target.checked)}
+                                />
+                                <span>Fallback to Gemini video understanding</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-slate-600">
+                                <input
+                                    type="checkbox"
+                                    checked={useFileSearch}
+                                    onChange={(e) => setUseFileSearch(e.target.checked)}
+                                />
+                                <span>Enable File Search grounding (Vault)</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-slate-600">
+                                <input
+                                    type="checkbox"
+                                    checked={useCodeExecution}
+                                    onChange={(e) => setUseCodeExecution(e.target.checked)}
+                                />
+                                <span>Enable Code Execution verification</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-slate-600">
+                                <input
+                                    type="checkbox"
+                                    checked={useInteractions}
+                                    onChange={(e) => setUseInteractions(e.target.checked)}
+                                />
+                                <span>Use Interactions API for structured output</span>
+                            </label>
+                        </div>
+                        <Textarea
+                            label="Vault Notes (Optional)"
+                            placeholder="Add syllabus notes or extra context for grounding."
+                            value={vaultNotes}
+                            onChange={(e) => setVaultNotes(e.target.value)}
+                            rows={3}
+                        />
+                        <div className="grid gap-3">
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-semibold text-slate-900">
+                                    Vault Docs (PDF/TXT)
+                                </label>
+                                <input
+                                    type="file"
+                                    multiple
+                                    onChange={(e) => setVaultFiles(Array.from(e.target.files ?? []))}
+                                />
+                            </div>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={onVaultUpload}
+                                disabled={!vaultFiles.length || vaultUploadBusy}
+                            >
+                                {vaultUploadBusy ? "Uploading..." : "Upload Vault Files"}
+                            </Button>
+                            {vaultDocs.length ? (
+                                <div className="text-xs text-slate-500">
+                                    Uploaded: {vaultDocs.map((doc) => doc.name).join(", ")}
+                                </div>
+                            ) : null}
+                        </div>
                     </div>
                 </details>
 

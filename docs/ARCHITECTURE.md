@@ -18,13 +18,15 @@ VeriLearn is a single Next.js full-stack app hosted on Vercel. The UI, API route
 - `lib/verimap.ts`: playlist -> blueprint.
 - `lib/verinotes.ts`: transcript-grounded notes with citations and visuals.
 - `lib/storyboard.ts`: storyboard keyframes for visual evidence (sprite tiles) + optional frame capture.
+- `lib/videoUnderstanding.ts`: Gemini video understanding fallback for chapters/timestamps.
 - `lib/fileSearchStore.ts`: File Search store creation and uploads.
-- `lib/interactions.ts`: Interactions API helpers for long-running generations.
+- `lib/interactions.ts`: Interactions API helpers for structured output (optional).
+- `lib/research.ts`: Serper search + Deep Research agent report builder.
 - `lib/veribank.ts`: structured question bank.
 - `lib/veriverify.ts`: verification and regeneration gates.
 - `lib/veriexam.ts`: mock exam assembly + grading.
 - `lib/veriexports.ts`: PDF/HTML/Anki exports.
-- `lib/verivault.ts` (via `app/api/vault`): PDF/TXT ingestion and storage.
+- `app/api/vault`: PDF/TXT ingestion and storage.
 - `lib/vaultSearch.ts`: lightweight vault search for grounding snippets.
 - `lib/coach.ts`: prompts for coach/viva/assist modes.
 
@@ -34,7 +36,7 @@ VeriLearn is a single Next.js full-stack app hosted on Vercel. The UI, API route
 
 ## APIs
 - `POST /api/generate-pack` (supports optional resume job id)
-- `GET /api/status/:jobId` + `GET /api/status/stream/:jobId`
+- `GET /api/status/:jobId`
 - `GET /api/packs`
 - `GET/DELETE /api/study-pack/:packId`
 - `POST /api/submit-answer`
@@ -44,6 +46,7 @@ VeriLearn is a single Next.js full-stack app hosted on Vercel. The UI, API route
 - `POST /api/coach/session` + `POST /api/coach/session/:id` (live sessions)
 - `ws://.../ws/coach` (local dev WS gateway via `server.mjs`)
 - Optional Gemini Live API bridge in `server.mjs` (WS only)
+- `POST /api/tts` (optional text-to-speech)
 - `POST /api/vault`
 
 ## Deployment

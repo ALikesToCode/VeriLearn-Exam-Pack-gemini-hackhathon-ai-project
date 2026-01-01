@@ -83,7 +83,7 @@ export async function POST(request: Request) {
   }
 
   const tools = [
-    ...(parsed.data.mode === "assist" ? buildComputerUseTools() : []),
+    ...(parsed.data.mode === "assist" ? buildComputerUseTools(parsed.data.model) : []),
     ...(pack.fileSearchStoreName
       ? buildFileSearchTools(pack.fileSearchStoreName)
       : [])
@@ -96,7 +96,6 @@ export async function POST(request: Request) {
     system,
     tools: tools.length ? tools : undefined,
     config: {
-      temperature: 0.5,
       maxOutputTokens: 800,
       retry: { maxRetries: 1, baseDelayMs: 500 }
     }

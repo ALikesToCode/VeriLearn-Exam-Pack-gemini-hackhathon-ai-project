@@ -156,6 +156,8 @@ export type GeneratePackOptions = {
   includeResearch: boolean;
   includeCoach: boolean;
   includeAssist: boolean;
+  useDeepResearch?: boolean;
+  useVideoUnderstanding?: boolean;
   useCodeExecution?: boolean;
   useFileSearch?: boolean;
   useInteractions?: boolean;

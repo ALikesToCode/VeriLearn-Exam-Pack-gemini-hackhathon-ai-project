@@ -53,6 +53,8 @@ export default function Home() {
   const [researchQuery, setResearchQuery] = useState("");
   const [browserUseApiKey, setBrowserUseApiKey] = useState("");
   const [includeResearch, setIncludeResearch] = useState(false);
+  const [useDeepResearch, setUseDeepResearch] = useState(false);
+  const [useVideoUnderstanding, setUseVideoUnderstanding] = useState(false);
 
   // Toggles
   const [includeCoach, setIncludeCoach] = useState(true);
@@ -94,6 +96,7 @@ export default function Home() {
   const [useWebSocket, setUseWebSocket] = useState(false);
   const [useLiveApi, setUseLiveApi] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const [vaultUploadBusy, setVaultUploadBusy] = useState(false);
 
   // --- Effects ---
 
@@ -112,6 +115,8 @@ export default function Home() {
   // Sync to LocalStorage
   useEffect(() => { if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEYS.youtube, youtubeApiKey); }, [youtubeApiKey]);
   useEffect(() => { if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEYS.gemini, geminiApiKey); }, [geminiApiKey]);
+  useEffect(() => { if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEYS.research, researchApiKey); }, [researchApiKey]);
+  useEffect(() => { if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEYS.researchQuery, researchQuery); }, [researchQuery]);
   useEffect(() => { if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEYS.browserUse, browserUseApiKey); }, [browserUseApiKey]);
 
   useEffect(() => {
@@ -125,6 +130,12 @@ export default function Home() {
       setUseBrowserUse(false);
     }
   }, [coachMode]);
+
+  useEffect(() => {
+    if (!includeResearch) {
+      setUseDeepResearch(false);
+    }
+  }, [includeResearch]);
   // ... (Other keys can be synced similarly if needed, keeping it concise)
 
   // Job Polling
@@ -178,6 +189,28 @@ export default function Home() {
 
   // --- Handlers ---
 
+  const handleVaultUpload = async () => {
+    if (!vaultFiles.length) return;
+    setVaultUploadBusy(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      vaultFiles.forEach((file) => formData.append("files", file));
+      const response = await fetch("/api/vault", {
+        method: "POST",
+        body: formData
+      });
+      if (!response.ok) throw new Error("Vault upload failed");
+      const data = await response.json();
+      setVaultDocs((prev) => [...prev, ...(data.docs ?? [])]);
+      setVaultFiles([]);
+    } catch (err) {
+      setError("Vault upload failed. Please try again.");
+    } finally {
+      setVaultUploadBusy(false);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!youtubeApiKey || !geminiApiKey) {
       setError("Please provide both YouTube and Gemini API keys.");
@@ -192,6 +225,11 @@ export default function Home() {
     setExamStarted(false);
 
     try {
+      const researchUrls = researchSources
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
       const response = await fetch("/api/generate-pack", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -199,8 +237,24 @@ export default function Home() {
           input, youtubeApiKey, geminiApiKey,
           models: { pro: proModel, flash: flashModel },
           examDate: examDate || undefined,
-          options: { examSize, language, includeCoach, includeResearch }
-          // Omitting advanced vault args for this cleaner version unless critical
+          vaultNotes: vaultNotes || undefined,
+          vaultDocIds: vaultDocs.map((doc) => doc.id),
+          researchSources: researchUrls.length ? researchUrls : undefined,
+          researchApiKey: researchApiKey || undefined,
+          researchQuery: researchQuery || undefined,
+          resumeJobId: resumeJobId || undefined,
+          options: {
+            examSize,
+            language,
+            includeCoach,
+            includeResearch,
+            includeAssist,
+            useDeepResearch,
+            useVideoUnderstanding,
+            useFileSearch,
+            useCodeExecution,
+            useInteractions
+          }
         })
       });
 
@@ -356,6 +410,19 @@ export default function Home() {
               geminiApiKey={geminiApiKey} setGeminiApiKey={setGeminiApiKey}
               youtubeApiKey={youtubeApiKey} setYoutubeApiKey={setYoutubeApiKey}
               researchSources={researchSources} setResearchSources={setResearchSources}
+              includeResearch={includeResearch} setIncludeResearch={setIncludeResearch}
+              researchApiKey={researchApiKey} setResearchApiKey={setResearchApiKey}
+              researchQuery={researchQuery} setResearchQuery={setResearchQuery}
+              useDeepResearch={useDeepResearch} setUseDeepResearch={setUseDeepResearch}
+              useVideoUnderstanding={useVideoUnderstanding} setUseVideoUnderstanding={setUseVideoUnderstanding}
+              useFileSearch={useFileSearch} setUseFileSearch={setUseFileSearch}
+              useCodeExecution={useCodeExecution} setUseCodeExecution={setUseCodeExecution}
+              useInteractions={useInteractions} setUseInteractions={setUseInteractions}
+              vaultNotes={vaultNotes} setVaultNotes={setVaultNotes}
+              vaultFiles={vaultFiles} setVaultFiles={setVaultFiles}
+              vaultDocs={vaultDocs}
+              onVaultUpload={handleVaultUpload}
+              vaultUploadBusy={vaultUploadBusy}
               browserUseApiKey={browserUseApiKey} setBrowserUseApiKey={setBrowserUseApiKey}
               onGenerate={handleGenerate}
               isSubmitting={isSubmitting}

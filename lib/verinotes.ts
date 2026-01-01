@@ -96,8 +96,7 @@ Return JSON matching the schema.`;
         prompt,
         schema: NOTE_SCHEMA,
         config: {
-          maxOutputTokens: 1400,
-          temperature: 0.4
+          maxOutputTokens: 1400
         }
       })
     : await generateJson<{
@@ -115,7 +114,6 @@ Return JSON matching the schema.`;
         config: {
           responseSchema: NOTE_SCHEMA,
           maxOutputTokens: 1400,
-          temperature: 0.4,
           retry: { maxRetries: 2, baseDelayMs: 600 }
         }
       });

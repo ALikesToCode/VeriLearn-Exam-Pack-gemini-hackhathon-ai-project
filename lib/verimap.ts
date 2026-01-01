@@ -108,15 +108,16 @@ export async function buildResearchBlueprint(
   apiKey: string,
   model: string
 ): Promise<Blueprint | null> {
-  if (!report?.summary || !report.sources?.length) return null;
+  if (!report?.summary) return null;
 
   const lectureTitles = lectures.map((lecture) => lecture.title).join(" | ");
+  const sources = report.sources ?? [];
   const prompt = `Use the research memo to build a study blueprint for ${courseTitle}.
 Lecture titles: ${lectureTitles}
 Research summary: ${report.summary}
-Sources:\n${report.sources
-    .map((source) => `- ${source.title} (${source.url})`)
-    .join("\n")}
+Sources:\n${sources.length
+    ? sources.map((source) => `- ${source.title} (${source.url})`).join("\n")
+    : "None provided."}
 Return 5-12 topics with weights that sum to ~100, prerequisites by topic title, and revision order (1 = earliest).
 Keep topics aligned to the lecture titles when possible. Return JSON matching the schema.`;
 
@@ -134,7 +135,6 @@ Keep topics aligned to the lecture titles when possible. Return JSON matching th
     config: {
       responseSchema: RESEARCH_BLUEPRINT_SCHEMA,
       maxOutputTokens: 1200,
-      temperature: 0.3,
       retry: { maxRetries: 2, baseDelayMs: 600 }
     }
   });

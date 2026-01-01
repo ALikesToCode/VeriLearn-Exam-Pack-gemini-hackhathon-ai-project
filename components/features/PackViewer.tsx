@@ -60,6 +60,10 @@ export const PackViewer: React.FC<PackViewerProps> = ({
     onDownloadPdf
 }) => {
     const [view, setView] = useState<ViewMode>("schedule");
+    const openExport = (path: string) => {
+        if (typeof window === "undefined") return;
+        window.open(path, "_blank");
+    };
 
     return (
         <div className="flex flex-col gap-6 w-full max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -88,9 +92,30 @@ export const PackViewer: React.FC<PackViewerProps> = ({
                     ))}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <Button variant="secondary" size="sm" onClick={onDownloadPdf}>
                         Download PDF
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => openExport(`/api/export/html?packId=${pack.id}`)}
+                    >
+                        View HTML
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => openExport(`/api/export/anki?packId=${pack.id}`)}
+                    >
+                        Download Anki
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openExport(`/pack/${pack.id}`)}
+                    >
+                        Share Pack
                     </Button>
                 </div>
             </Card>

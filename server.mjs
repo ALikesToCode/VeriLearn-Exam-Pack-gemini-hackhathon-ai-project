@@ -55,13 +55,15 @@ app.prepare().then(() => {
           session.browserUseApiKey = payload.browserUseApiKey ?? "";
           session.useBrowserUse = Boolean(payload.useBrowserUse);
 
-          if (session.useLive && session.geminiApiKey) {
+          const normalizedModel = (session.model ?? "").replace(/^models\//, "").toLowerCase();
+          const liveAllowed = session.useLive && normalizedModel.startsWith("gemini-2.5");
+
+          if (liveAllowed && session.geminiApiKey) {
             const ai = new GoogleGenAI({ apiKey: session.geminiApiKey });
             session.liveSession = await ai.live.connect({
               model: session.model,
               config: {
                 responseModalities: ["TEXT"],
-                temperature: 0.5,
                 maxOutputTokens: 800
               },
               callbacks: {
@@ -95,7 +97,10 @@ app.prepare().then(() => {
           return;
         }
 
-        if (session.useLive && session.liveSession) {
+        const normalizedModel = (session.model ?? "").replace(/^models\//, "").toLowerCase();
+        const liveAllowed = session.useLive && normalizedModel.startsWith("gemini-2.5");
+
+        if (liveAllowed && session.liveSession) {
           session.liveBuffer = "";
           session.liveSession.sendClientContent({
             turns: [

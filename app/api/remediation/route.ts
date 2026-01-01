@@ -117,7 +117,6 @@ Keep it under 90 words.`;
           model: parsed.data.model,
           prompt,
           config: {
-            temperature: 0.4,
             maxOutputTokens: 200,
             retry: { maxRetries: 2, baseDelayMs: 500 }
           }

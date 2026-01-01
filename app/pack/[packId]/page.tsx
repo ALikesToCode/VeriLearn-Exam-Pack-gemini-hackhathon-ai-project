@@ -1,161 +1,96 @@
-import Link from "next/link";
+import { notFound } from "next/navigation";
 import { getPack } from "../../../lib/store";
 
-export default async function PackPage({
+export default async function PackSharePage({
   params
 }: {
   params: { packId: string };
 }) {
-  const pack = await getPack(params.packId);
-  const spriteScale = 2;
-  const buildSpriteStyle = (sprite: {
-    spriteUrl: string;
-    width: number;
-    height: number;
-    columns: number;
-    rows: number;
-    col: number;
-    row: number;
-  }) => ({
-    width: sprite.width * spriteScale,
-    height: sprite.height * spriteScale,
-    backgroundImage: `url(${sprite.spriteUrl})`,
-    backgroundPosition: `-${sprite.col * sprite.width * spriteScale}px -${sprite.row * sprite.height * spriteScale}px`,
-    backgroundSize: `${sprite.columns * sprite.width * spriteScale}px ${sprite.rows * sprite.height * spriteScale}px`
-  });
+  const { packId } = params;
+  const pack = await getPack(packId);
 
   if (!pack) {
-    return (
-      <main>
-        <div className="shell">
-          <section className="card">
-            <div className="section-title">Pack not found</div>
-            <p>The share link is invalid or expired.</p>
-            <Link className="button secondary" href="/">
-              Back to generator
-            </Link>
-          </section>
-        </div>
-      </main>
-    );
+    notFound();
   }
 
   return (
-    <main>
-      <div className="shell">
-        <section className="card">
-          <div className="section-title">{pack.title}</div>
-          <p>Generated: {new Date(pack.createdAt).toLocaleString()}</p>
-          <Link className="button secondary" href="/">
-            Back to generator
-          </Link>
-        </section>
-
-        <section className="grid-2">
-          {pack.researchReport ? (
-            <div className="card">
-              <div className="section-title">Research report</div>
-              <p>{pack.researchReport.summary}</p>
-              <div className="list">
-                {pack.researchReport.sources.map((source) => (
-                  <div key={source.url} className="note-block">
-                    <strong>{source.title}</strong>
-                    <p>{source.excerpt}</p>
-                    <a href={source.url} target="_blank" rel="noreferrer">
-                      {source.url}
-                    </a>
-                  </div>
-                ))}
-              </div>
+    <main className="min-h-screen bg-slate-50 pb-16">
+      <div className="shell py-10">
+        <div className="flex flex-col gap-6">
+          <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-sm text-slate-500">VeriLearn Share Pack</p>
+            <h1 className="text-3xl font-serif text-slate-900">{pack.title}</h1>
+            <p className="text-sm text-slate-500">
+              Generated {new Date(pack.createdAt).toLocaleString()}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <a
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                href={`/api/export/pdf?packId=${pack.id}`}
+              >
+                Download PDF
+              </a>
+              <a
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                href={`/api/export/html?packId=${pack.id}`}
+              >
+                View HTML Export
+              </a>
+              <a
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+                href={`/api/export/anki?packId=${pack.id}`}
+              >
+                Anki CSV/TSV
+              </a>
             </div>
-          ) : null}
-          <div className="card">
-            <div className="section-title">Blueprint</div>
-            <div className="list">
+          </header>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-slate-800">Blueprint</h2>
+            <ul className="mt-4 grid gap-2 text-sm text-slate-600">
               {pack.blueprint.topics.map((topic) => (
-                <div key={topic.id} className="note-block">
-                  <strong>{topic.title}</strong>
-                  <div className="pill-list">
-                    <span className="pill">Weight {topic.weight}%</span>
-                    <span className="pill">Order {topic.revisionOrder}</span>
-                  </div>
-                </div>
+                <li key={topic.id} className="flex items-center justify-between">
+                  <span>{topic.title}</span>
+                  <span className="text-slate-400">{topic.weight}%</span>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </section>
 
-          <div className="card">
-            <div className="section-title">Notes</div>
-            {pack.notes.map((note) => (
-              <div key={note.lectureId} className="note-block">
-                <div className="kicker">{note.lectureTitle}</div>
-                <p>{note.summary}</p>
-                <div className="pill-list">
-                  {note.citations.slice(0, 4).map((citation) => (
-                    <a
-                      key={citation.label}
-                      className="pill"
-                      href={citation.url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {citation.timestamp}
-                    </a>
-                  ))}
-                </div>
-                {note.visuals?.length ? (
-                  <div className="visuals">
-                    {note.visuals.map((visual, index) => (
-                      <div key={`${visual.timestamp}-${index}`} className="visual-card">
-                        {visual.sprite ? (
-                          <div className="sprite-frame" style={buildSpriteStyle(visual.sprite)} />
-                        ) : (
-                          <img src={visual.url} alt={visual.description} />
-                        )}
-                        <div className="kicker">{visual.timestamp}</div>
-                        <p>{visual.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-
-          <div className="card">
-            <div className="section-title">Question bank</div>
-            <div className="list">
-              {pack.questions.map((question) => (
-                <div key={question.id} className="question">
-                  <strong>{question.stem}</strong>
-                  {question.options ? (
-                    <div className="options">
-                      {question.options.map((option) => (
-                        <div key={option.id} className="option">
-                          <span>{option.id}.</span>
-                          <span>{option.text}</span>
-                        </div>
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-slate-800">Evidence-backed Notes</h2>
+            <div className="mt-4 grid gap-6">
+              {pack.notes.map((note) => (
+                <article key={note.lectureId} className="rounded-xl border border-slate-100 p-4">
+                  <h3 className="text-lg font-semibold text-slate-800">
+                    {note.lectureTitle}
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-600">{note.summary}</p>
+                  {note.keyTakeaways.length ? (
+                    <ul className="mt-3 list-disc pl-5 text-sm text-slate-600">
+                      {note.keyTakeaways.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {note.citations.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {note.citations.slice(0, 4).map((citation) => (
+                        <a
+                          key={`${note.lectureId}-${citation.timestamp}`}
+                          href={citation.url}
+                          className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600"
+                        >
+                          {citation.timestamp}
+                        </a>
                       ))}
                     </div>
                   ) : null}
-                  <div className="pill-list">
-                    {question.citations.slice(0, 2).map((citation) => (
-                      <a
-                        key={citation.label}
-                        className="pill"
-                        href={citation.url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {citation.timestamp}
-                      </a>
-                    ))}
-                  </div>
-                </div>
+                </article>
               ))}
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
     </main>
   );

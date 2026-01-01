@@ -138,7 +138,7 @@ export async function POST(
   }
 
   const tools = [
-    ...(session.mode === "assist" ? buildComputerUseTools() : []),
+    ...(session.mode === "assist" ? buildComputerUseTools(parsed.data.model) : []),
     ...(pack.fileSearchStoreName
       ? buildFileSearchTools(pack.fileSearchStoreName)
       : [])
@@ -151,7 +151,6 @@ export async function POST(
     system,
     tools: tools.length ? tools : undefined,
     config: {
-      temperature: 0.5,
       maxOutputTokens: 800,
       retry: { maxRetries: 1, baseDelayMs: 500 }
     }

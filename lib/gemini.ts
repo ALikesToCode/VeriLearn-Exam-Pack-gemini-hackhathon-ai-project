@@ -16,6 +16,7 @@ type GenerateOptions = {
   model: string;
   apiKey: string;
   prompt: string;
+  parts?: Array<Record<string, unknown>>;
   system?: string;
   config?: GenerationConfig;
   tools?: Record<string, unknown>[];
@@ -23,7 +24,7 @@ type GenerateOptions = {
 };
 
 function buildPayload(options: GenerateOptions) {
-  const parts = [{ text: options.prompt }];
+  const parts = options.parts ?? [{ text: options.prompt }];
   const payload: Record<string, unknown> = {
     contents: [{ role: "user", parts }]
   };
@@ -106,7 +107,6 @@ export async function generateJson<T>(options: GenerateOptions): Promise<T> {
     ...options,
     config: {
       responseMimeType: "application/json",
-      temperature: 0.3,
       maxOutputTokens: 2048,
       ...options.config
     }

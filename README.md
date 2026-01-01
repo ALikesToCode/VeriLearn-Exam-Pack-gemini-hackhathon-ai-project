@@ -17,20 +17,22 @@ Open `http://localhost:3000` and paste a playlist or a list of video URLs. Provi
 
 - Playlist ingestion via YouTube Data API
 - Transcript grounding from YouTube timed text + storyboard keyframes (optional frame capture)
+- Optional Gemini video understanding fallback when transcripts are missing
 - Gemini Pro for notes + questions
 - Gemini Flash for verification gates
 - Mock exam with grading + remediation links
 - Remediation plans grouped by weak topics
 - Mastery tracking with spaced repetition cadence + adaptive practice sets
 - Exports: PDF + HTML + Anki CSV/TSV
-- Shareable pack pages
+- Shareable pack pages (`/pack/:packId`) and export buttons in the pack viewer
 - Saved pack list + delete
 - Coach / Viva / Assist chat mode (streamed + live sessions + optional WebSocket)
+- Optional TTS endpoint (`POST /api/tts`) for Gemini 2.5 TTS models
 - Browser Use Cloud assist tasks (prefix messages with `browser:`)
-- Deep research mode via Serper (optional API key)
+- Deep research via Gemini agent (optional) or Serper search (optional API key)
 - Resume generation via job id
 - File Search store grounding (vault upload)
-- Interactions API support for long-running generation
+- Interactions API toggle for structured outputs (optional)
 - Study schedule generated from exam date
 
 ## Deployment (Vercel)
@@ -51,7 +53,7 @@ npm run dev:ws
 
 Then connect to `ws://localhost:3000/ws/coach` (the UI has a toggle).
 
-The WebSocket gateway can optionally use Gemini Live API for text (toggle in the UI).
+The WebSocket gateway can optionally use Gemini Live API on Gemini 2.5 models (toggle in the UI).
 
 ## Docs
 
@@ -65,6 +67,7 @@ The WebSocket gateway can optionally use Gemini Live API for text (toggle in the
 - For best results, keep playlists under 20-30 lectures per run to avoid long generation times.
 - Models are configurable in the UI (defaults: `gemini-3-pro-preview`, `gemini-3-flash-preview`).
 - For Deep Research search, supply a Serper API key in the UI (optional).
+- Deep Research agent mode does not require external search keys.
 - File Search uses the Google Gen AI SDK and requires vault docs (optional).
 - Frame capture requires `ffmpeg` on PATH and `ENABLE_FRAME_CAPTURE=1`.
 - File Search and Interactions API support require Node.js 20+.

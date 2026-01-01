@@ -8,6 +8,9 @@ interface CoachViewProps {
     isBusy: boolean;
     mode: "coach" | "viva" | "assist";
     setMode: (val: "coach" | "viva" | "assist") => void;
+    useLiveApi: boolean;
+    setUseLiveApi: (val: boolean) => void;
+    liveReady: boolean;
     useBrowserUse: boolean;
     setUseBrowserUse: (val: boolean) => void;
     browserUseReady: boolean;
@@ -19,6 +22,9 @@ export const CoachView: React.FC<CoachViewProps> = ({
     isBusy,
     mode,
     setMode,
+    useLiveApi,
+    setUseLiveApi,
+    liveReady,
     useBrowserUse,
     setUseBrowserUse,
     browserUseReady
@@ -56,6 +62,15 @@ export const CoachView: React.FC<CoachViewProps> = ({
                 <label className="flex items-center gap-2 text-sm text-slate-600">
                     <input
                         type="checkbox"
+                        checked={useLiveApi}
+                        disabled={!liveReady || mode === "assist"}
+                        onChange={(e) => setUseLiveApi(e.target.checked)}
+                    />
+                    <span>Use Gemini Live API (ephemeral token)</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-600">
+                    <input
+                        type="checkbox"
                         checked={useBrowserUse}
                         disabled={!browserUseReady || mode !== "assist"}
                         onChange={(e) => setUseBrowserUse(e.target.checked)}
@@ -66,6 +81,11 @@ export const CoachView: React.FC<CoachViewProps> = ({
             {mode === "assist" && useBrowserUse ? (
                 <div className="px-6 py-2 text-xs text-slate-500 bg-slate-50 border-b border-slate-100">
                     Tip: prefix your message with <strong>browser:</strong> to launch a Browser Use task.
+                </div>
+            ) : null}
+            {mode !== "assist" && useLiveApi ? (
+                <div className="px-6 py-2 text-xs text-slate-500 bg-slate-50 border-b border-slate-100">
+                    Live mode connects directly to Gemini with short-lived ephemeral tokens.
                 </div>
             ) : null}
             {mode === "assist" && !browserUseReady ? (

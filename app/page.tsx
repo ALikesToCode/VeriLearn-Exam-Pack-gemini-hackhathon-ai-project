@@ -1,16 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   GradeResult,
   JobStatus,
   Pack,
   PackSummary,
-  PracticePlan,
-  Question,
   RemediationItem
 } from "../lib/types";
-import { buildStudySchedule } from "../lib/schedule";
+import { buildCoachSystem } from "../lib/coach";
 
 // Components
 import { Hero } from "../components/features/Hero";
@@ -21,6 +19,7 @@ import { PackViewer } from "../components/features/PackViewer";
 const DEFAULT_INPUT = "https://youtube.com/playlist?list=PL123_VERILEARN";
 const DEFAULT_PRO_MODEL = "gemini-3-pro-preview";
 const DEFAULT_FLASH_MODEL = "gemini-3-flash-preview";
+const DEFAULT_LIVE_MODEL = "gemini-live-2.5-flash-preview";
 
 const STORAGE_KEYS = {
   youtube: "verilearn_youtube_key",
@@ -93,9 +92,11 @@ export default function Home() {
   const [coachMessages, setCoachMessages] = useState<CoachMessage[]>([]);
   const [coachBusy, setCoachBusy] = useState(false);
   const [coachSessionId, setCoachSessionId] = useState<string | null>(null);
-  const [useWebSocket, setUseWebSocket] = useState(false);
   const [useLiveApi, setUseLiveApi] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
+  const liveSessionRef = useRef<any>(null);
+  const liveBufferRef = useRef<string>("");
+  const liveModelRef = useRef(DEFAULT_LIVE_MODEL);
+  const liveSystemRef = useRef<string>("");
   const [vaultUploadBusy, setVaultUploadBusy] = useState(false);
 
   // --- Effects ---
@@ -137,6 +138,34 @@ export default function Home() {
     }
   }, [includeResearch]);
   // ... (Other keys can be synced similarly if needed, keeping it concise)
+
+  const disconnectLiveSession = useCallback(() => {
+    if (liveSessionRef.current) {
+      liveSessionRef.current.close();
+      liveSessionRef.current = null;
+    }
+    liveBufferRef.current = "";
+    setCoachBusy(false);
+  }, []);
+
+  useEffect(() => {
+    if (!useLiveApi) {
+      disconnectLiveSession();
+    }
+  }, [useLiveApi, disconnectLiveSession]);
+
+  useEffect(() => {
+    if (!geminiApiKey) {
+      setUseLiveApi(false);
+      disconnectLiveSession();
+    }
+  }, [geminiApiKey, disconnectLiveSession]);
+
+  useEffect(() => {
+    return () => {
+      disconnectLiveSession();
+    };
+  }, [disconnectLiveSession]);
 
   // Job Polling
   useEffect(() => {
@@ -185,9 +214,103 @@ export default function Home() {
   useEffect(() => {
     setCoachSessionId(null);
     setCoachMessages([]);
-  }, [coachMode]);
+    setUseLiveApi(false);
+    disconnectLiveSession();
+  }, [coachMode, disconnectLiveSession]);
 
   // --- Handlers ---
+
+  const handleLiveMessage = useCallback(
+    (message: any) => {
+      if (message?.serverContent?.interrupted) {
+        liveBufferRef.current = "";
+        return;
+      }
+
+      const parts = message?.serverContent?.modelTurn?.parts ?? [];
+      const chunk = parts.map((part: any) => part.text ?? "").join("");
+      if (chunk) {
+        liveBufferRef.current += chunk;
+        setCoachMessages((prev) => {
+          if (!prev.length) return prev;
+          const next = [...prev];
+          const lastIndex = next.length - 1;
+          if (next[lastIndex]?.role === "assistant") {
+            next[lastIndex] = { role: "assistant", content: liveBufferRef.current };
+          }
+          return next;
+        });
+      }
+
+      if (message?.serverContent?.turnComplete) {
+        setCoachBusy(false);
+      }
+    },
+    [setCoachMessages]
+  );
+
+  const ensureLiveSession = useCallback(
+    async (systemInstruction: string) => {
+      if (!geminiApiKey) {
+        throw new Error("Missing Gemini API key.");
+      }
+
+      if (
+        liveSessionRef.current &&
+        liveSystemRef.current === systemInstruction
+      ) {
+        return liveSessionRef.current;
+      }
+
+      disconnectLiveSession();
+      liveSystemRef.current = systemInstruction;
+
+      const tokenResponse = await fetch("/api/live-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          geminiApiKey,
+          model: liveModelRef.current,
+          responseModalities: ["TEXT"]
+        })
+      });
+
+      if (!tokenResponse.ok) {
+        throw new Error("Failed to provision live token.");
+      }
+
+      const tokenData = await tokenResponse.json();
+      const token = tokenData?.token;
+      if (!token) {
+        throw new Error("Live token missing.");
+      }
+
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey: token, apiVersion: "v1alpha" });
+
+      const session = await ai.live.connect({
+        model: liveModelRef.current,
+        config: {
+          responseModalities: ["TEXT"],
+          systemInstruction,
+          sessionResumption: {}
+        },
+        callbacks: {
+          onmessage: handleLiveMessage,
+          onerror: () => {
+            disconnectLiveSession();
+          },
+          onclose: () => {
+            disconnectLiveSession();
+          }
+        }
+      });
+
+      liveSessionRef.current = session;
+      return session;
+    },
+    [geminiApiKey, handleLiveMessage, disconnectLiveSession]
+  );
 
   const handleVaultUpload = async () => {
     if (!vaultFiles.length) return;
@@ -324,11 +447,33 @@ export default function Home() {
 
   const handleCoachSend = async (message: string) => {
     if (!pack || !geminiApiKey) return;
-    const newMessages = [...coachMessages, { role: "user" as const, content: message }];
-    setCoachMessages(newMessages);
+    const history = [...coachMessages, { role: "user" as const, content: message }];
+    setCoachMessages(history);
     setCoachBusy(true);
 
     try {
+      if (useLiveApi) {
+        const systemInstruction = buildCoachSystem(pack, coachMode);
+        try {
+          const session = await ensureLiveSession(systemInstruction);
+          setCoachMessages([...history, { role: "assistant", content: "" }]);
+          liveBufferRef.current = "";
+          session.sendClientContent({
+            turns: [
+              {
+                role: "user",
+                parts: [{ text: message }]
+              }
+            ],
+            turnComplete: true
+          });
+          return;
+        } catch (error) {
+          console.error(error);
+          setUseLiveApi(false);
+        }
+      }
+
       // Simplified coach flow for this refactor
       let sessionId = coachSessionId;
       if (!sessionId) {
@@ -365,7 +510,7 @@ export default function Home() {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let assistantText = "";
-        setCoachMessages([...newMessages, { role: "assistant", content: "" }]);
+        setCoachMessages([...history, { role: "assistant", content: "" }]);
 
         while (true) {
           const { value, done } = await reader.read();
@@ -453,6 +598,9 @@ export default function Home() {
               coachBusy={coachBusy}
               coachMode={coachMode}
               setCoachMode={setCoachMode}
+              useLiveApi={useLiveApi}
+              setUseLiveApi={setUseLiveApi}
+              liveReady={Boolean(geminiApiKey)}
               useBrowserUse={useBrowserUse}
               setUseBrowserUse={setUseBrowserUse}
               browserUseReady={Boolean(browserUseApiKey)}

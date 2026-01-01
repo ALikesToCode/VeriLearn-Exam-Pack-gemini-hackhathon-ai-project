@@ -45,12 +45,11 @@ VeriLearn is a single Next.js full-stack app hosted on Vercel. The UI, API route
 - `GET /api/export/pdf|html|anki`
 - `POST /api/coach` (stateless stream)
 - `POST /api/coach/session` + `POST /api/coach/session/:id` (live sessions)
-- `ws://.../ws/coach` (local dev WS gateway via `server.mjs`)
-- Optional Gemini Live API bridge in `server.mjs` (WS only)
+- `POST /api/live-token` (ephemeral tokens for Gemini Live API)
 - `POST /api/tts` (optional text-to-speech)
 - `POST /api/vault`
 
 ## Deployment
 Designed for Vercel. The UI collects API keys per user, so no build-time secrets are required. KV is optional for persistence.
 
-For local WebSocket support, run `node server.mjs`, which proxies WS traffic to the HTTP coach endpoint.
+Live API uses ephemeral tokens and connects directly from the client, so no WebSocket proxy is required.

@@ -32,8 +32,8 @@
 - Enable File Search and verify responses cite vault content.
 
 ## Live Sessions
-- Enable WebSocket mode locally and confirm streaming replies.
-- Enable Gemini Live API toggle and confirm responses stream from live session.
+- Enable Gemini Live API toggle and confirm responses stream from the live session.
+- Confirm `POST /api/live-token` returns an ephemeral token and sessions connect without a proxy.
 - Try Viva mode and verify the coach asks one question at a time with feedback.
 - Try Assist mode with a research key and confirm search-based context appears.
 - In Assist mode, send a `browser: ...` prompt and confirm a Browser Use live URL appears.

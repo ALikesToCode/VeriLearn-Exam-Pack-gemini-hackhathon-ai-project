@@ -35,6 +35,9 @@ interface PackViewerProps {
     coachBusy: boolean;
     coachMode: "coach" | "viva" | "assist";
     setCoachMode: (val: "coach" | "viva" | "assist") => void;
+    useLiveApi: boolean;
+    setUseLiveApi: (val: boolean) => void;
+    liveReady: boolean;
     useBrowserUse: boolean;
     setUseBrowserUse: (val: boolean) => void;
     browserUseReady: boolean;
@@ -53,6 +56,7 @@ export const PackViewer: React.FC<PackViewerProps> = ({
     remediation, onRemediationRequest, remediationLoading,
     coachMessages, onCoachSend, coachBusy,
     coachMode, setCoachMode,
+    useLiveApi, setUseLiveApi, liveReady,
     useBrowserUse, setUseBrowserUse, browserUseReady,
     onDownloadPdf
 }) => {
@@ -146,6 +150,9 @@ export const PackViewer: React.FC<PackViewerProps> = ({
                         isBusy={coachBusy}
                         mode={coachMode}
                         setMode={setCoachMode}
+                        useLiveApi={useLiveApi}
+                        setUseLiveApi={setUseLiveApi}
+                        liveReady={liveReady}
                         useBrowserUse={useBrowserUse}
                         setUseBrowserUse={setUseBrowserUse}
                         browserUseReady={browserUseReady}

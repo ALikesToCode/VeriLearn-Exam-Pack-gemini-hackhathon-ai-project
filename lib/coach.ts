@@ -87,3 +87,39 @@ Coach:`;
 
   return { system, prompt };
 }
+
+export function buildCoachSystem(
+  pack: Pack,
+  mode: "coach" | "viva" | "assist"
+) {
+  const base = summarizePack(pack);
+  const modeInstruction =
+    mode === "viva"
+      ? "Run a strict oral-viva session: ask one question, wait, grade the response (0-5), give concise feedback with evidence, then ask the next question."
+      : mode === "assist"
+        ? "Assist the learner with explanations, quick checks, and concise worked examples."
+        : "Coach the learner: answer questions, quiz them, and point to evidence timestamps.";
+
+  const vivaBank =
+    mode === "viva"
+      ? pickVivaQuestions(pack, 6)
+          .map(
+            (question, index) =>
+              `${index + 1}. ${question.stem}\nAnswer: ${question.answer}\nEvidence: ${question.citations
+                .slice(0, 2)
+                .map((citation) => `${citation.timestamp} ${citation.url}`)
+                .join(" | ")}`
+          )
+          .join("\n\n")
+      : "";
+
+  return [
+    "You are VeriCoach, an exam prep tutor.",
+    base,
+    modeInstruction,
+    vivaBank ? `Viva question bank:\n${vivaBank}` : "",
+    "Use evidence timestamps when possible."
+  ]
+    .filter(Boolean)
+    .join("\n");
+}

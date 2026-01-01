@@ -11,12 +11,18 @@ importers:
       '@google/genai':
         specifier: 1.34.0
         version: 1.34.0
+      '@tailwindcss/postcss':
+        specifier: ^4.1.18
+        version: 4.1.18
       '@vercel/functions':
         specifier: 3.3.4
         version: 3.3.4
       '@vercel/kv':
         specifier: 3.0.0
         version: 3.0.0
+      autoprefixer:
+        specifier: ^10.4.23
+        version: 10.4.23(postcss@8.5.6)
       fast-xml-parser:
         specifier: 5.3.3
         version: 5.3.3
@@ -32,12 +38,18 @@ importers:
       pdf-parse:
         specifier: 2.4.5
         version: 2.4.5
+      postcss:
+        specifier: ^8.5.6
+        version: 8.5.6
       react:
         specifier: 19.2.3
         version: 19.2.3
       react-dom:
         specifier: 19.2.3
         version: 19.2.3(react@19.2.3)
+      tailwindcss:
+        specifier: ^4.1.18
+        version: 4.1.18
       ws:
         specifier: 8.18.3
         version: 8.18.3
@@ -48,9 +60,6 @@ importers:
         specifier: 4.3.4
         version: 4.3.4
     devDependencies:
-      '@tailwindcss/postcss':
-        specifier: ^4.1.18
-        version: 4.1.18
       '@types/he':
         specifier: ^1.2.3
         version: 1.2.3
@@ -63,15 +72,6 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.7)
-      autoprefixer:
-        specifier: ^10.4.23
-        version: 10.4.23(postcss@8.5.6)
-      postcss:
-        specifier: ^8.5.6
-        version: 8.5.6
-      tailwindcss:
-        specifier: ^4.1.18
-        version: 4.1.18
       typescript:
         specifier: 5.9.3
         version: 5.9.3

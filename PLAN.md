@@ -26,6 +26,7 @@ Goal: turn lecture playlists into a trusted, evidence-backed exam prep system th
 ### Stretch
 - Deep Research blueprint report (syllabus + past papers) via `deep-research-pro-preview-12-2025` (Interactions API, background mode).
 - Live oral-viva mode via streaming responses (Interactions API or streamGenerateContent). Optional TTS via Gemini 2.5 TTS models.
+- Live API can run client-to-Gemini using ephemeral tokens (no WebSocket proxy needed).
 - "Assist mode" computer-use for resource collection (not supported on Gemini 3; only if we switch to a 2.5 model).
 
 ## System Architecture (Modules)
@@ -159,4 +160,5 @@ This repo runs as a single Next.js app (UI + API routes + pipeline) instead of t
 - GET /api/export/pdf|html|anki
 - POST /api/coach, /api/coach/session, /api/coach/session/:id
 - POST /api/tts
+- POST /api/live-token
 - POST /api/vault

@@ -14,6 +14,7 @@ async function waitForOperation(
   const ai = getGenAIClient(apiKey);
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
+    // @ts-ignore
     const operation = await ai.operations.get({ name });
     if (operation.done) return operation;
     await new Promise((resolve) => setTimeout(resolve, 2000));

@@ -1,15 +1,28 @@
 import React, { useRef, useEffect } from "react";
 import { Card } from "../../ui/Card";
-import { Input } from "../../ui/Input";
 import { Button } from "../../ui/Button";
 
 interface CoachViewProps {
     messages: { role: "user" | "assistant"; content: string }[];
     onSend: (msg: string) => void;
     isBusy: boolean;
+    mode: "coach" | "viva" | "assist";
+    setMode: (val: "coach" | "viva" | "assist") => void;
+    useBrowserUse: boolean;
+    setUseBrowserUse: (val: boolean) => void;
+    browserUseReady: boolean;
 }
 
-export const CoachView: React.FC<CoachViewProps> = ({ messages, onSend, isBusy }) => {
+export const CoachView: React.FC<CoachViewProps> = ({
+    messages,
+    onSend,
+    isBusy,
+    mode,
+    setMode,
+    useBrowserUse,
+    setUseBrowserUse,
+    browserUseReady
+}) => {
     const [input, setInput] = React.useState("");
     const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -25,6 +38,41 @@ export const CoachView: React.FC<CoachViewProps> = ({ messages, onSend, isBusy }
 
     return (
         <Card className="h-[600px] flex flex-col p-0 overflow-hidden bg-white shadow-2xl border-slate-200">
+
+            {/* Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-slate-100 bg-white">
+                <div className="flex items-center gap-2">
+                    <label className="text-sm font-semibold text-slate-700">Mode</label>
+                    <select
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                        value={mode}
+                        onChange={(e) => setMode(e.target.value as "coach" | "viva" | "assist")}
+                    >
+                        <option value="coach">Coach</option>
+                        <option value="viva">Viva</option>
+                        <option value="assist">Assist</option>
+                    </select>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-slate-600">
+                    <input
+                        type="checkbox"
+                        checked={useBrowserUse}
+                        disabled={!browserUseReady || mode !== "assist"}
+                        onChange={(e) => setUseBrowserUse(e.target.checked)}
+                    />
+                    <span>Use Browser Use Cloud (Assist)</span>
+                </label>
+            </div>
+            {mode === "assist" && useBrowserUse ? (
+                <div className="px-6 py-2 text-xs text-slate-500 bg-slate-50 border-b border-slate-100">
+                    Tip: prefix your message with <strong>browser:</strong> to launch a Browser Use task.
+                </div>
+            ) : null}
+            {mode === "assist" && !browserUseReady ? (
+                <div className="px-6 py-2 text-xs text-slate-400 bg-slate-50 border-b border-slate-100">
+                    Add a Browser Use API key in the config form to enable Browser Use tasks.
+                </div>
+            ) : null}
 
             {/* Chat Area */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">

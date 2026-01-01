@@ -18,6 +18,8 @@ interface ConfigFormProps {
     setGeminiApiKey: (val: string) => void;
     youtubeApiKey: string;
     setYoutubeApiKey: (val: string) => void;
+    browserUseApiKey: string;
+    setBrowserUseApiKey: (val: string) => void;
 
     // Advanced Settings toggles (could be expanded)
     researchSources: string;
@@ -35,6 +37,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     examDate, setExamDate,
     geminiApiKey, setGeminiApiKey,
     youtubeApiKey, setYoutubeApiKey,
+    browserUseApiKey, setBrowserUseApiKey,
     researchSources, setResearchSources,
     onGenerate, isSubmitting, error
 }) => {
@@ -116,6 +119,13 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                             value={researchSources}
                             onChange={(e) => setResearchSources(e.target.value)}
                             rows={4}
+                        />
+                        <Input
+                            label="Browser Use API Key (optional)"
+                            type="password"
+                            placeholder="bu_..."
+                            value={browserUseApiKey}
+                            onChange={(e) => setBrowserUseApiKey(e.target.value)}
                         />
                     </div>
                 </details>

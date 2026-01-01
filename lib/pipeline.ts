@@ -29,7 +29,7 @@ import { buildResearchReport, fetchResearchSources, searchResearchSources } from
 import { buildVisualReferences } from "./storyboard";
 import { buildVaultContext } from "./vaultSearch";
 import { createFileSearchStore, uploadVaultDocsToStore } from "./fileSearchStore";
-import { GeneratePackOptions, JobStatus, Pack, TranscriptSegment } from "./types";
+import { GeneratePackOptions, JobStatus, Pack, TranscriptSegment, VaultDoc } from "./types";
 
 export type PipelineInputs = {
   input: string;
@@ -91,7 +91,7 @@ async function resolveLectures(input: string, youtubeApiKey: string) {
 
   const playlistId = extractPlaylistId(input);
   if (playlistId) {
-    return buildLecturesFromPlaylist(youtubeApiKey, playlistId);
+    return buildLecturesFromPlaylist(youtubeApiKey, playlistId, input);
   }
 
   if (lines.length > 1) {
@@ -183,7 +183,7 @@ export async function runPackPipeline(jobId: string, inputs: PipelineInputs) {
     let researchReport;
 
     const vaultDocs = inputs.vaultDocIds?.length
-      ? (await Promise.all(inputs.vaultDocIds.map((id) => getVaultDoc(id)))).filter(Boolean)
+      ? (await Promise.all(inputs.vaultDocIds.map((id) => getVaultDoc(id)))).filter((doc): doc is VaultDoc => !!doc)
       : [];
     const baseContextParts = [
       inputs.vaultNotes,

@@ -19,7 +19,9 @@ async function extractText(file: File) {
   const arrayBuffer = await file.arrayBuffer();
 
   if (file.type === "application/pdf" || name.endsWith(".pdf")) {
-    const pdfParse = (await import("pdf-parse")).default;
+    const pdfParseModule = await import("pdf-parse");
+    // @ts-ignore
+    const pdfParse = pdfParseModule.default || pdfParseModule;
     const data = await pdfParse(Buffer.from(arrayBuffer));
     return truncate(data.text ?? "");
   }

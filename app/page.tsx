@@ -113,6 +113,18 @@ export default function Home() {
   useEffect(() => { if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEYS.youtube, youtubeApiKey); }, [youtubeApiKey]);
   useEffect(() => { if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEYS.gemini, geminiApiKey); }, [geminiApiKey]);
   useEffect(() => { if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEYS.browserUse, browserUseApiKey); }, [browserUseApiKey]);
+
+  useEffect(() => {
+    if (!browserUseApiKey) {
+      setUseBrowserUse(false);
+    }
+  }, [browserUseApiKey]);
+
+  useEffect(() => {
+    if (coachMode !== "assist") {
+      setUseBrowserUse(false);
+    }
+  }, [coachMode]);
   // ... (Other keys can be synced similarly if needed, keeping it concise)
 
   // Job Polling
@@ -158,6 +170,11 @@ export default function Home() {
     }, 1000);
     return () => clearInterval(timer);
   }, [examStarted, pack]);
+
+  useEffect(() => {
+    setCoachSessionId(null);
+    setCoachMessages([]);
+  }, [coachMode]);
 
   // --- Handlers ---
 
@@ -339,6 +356,7 @@ export default function Home() {
               geminiApiKey={geminiApiKey} setGeminiApiKey={setGeminiApiKey}
               youtubeApiKey={youtubeApiKey} setYoutubeApiKey={setYoutubeApiKey}
               researchSources={researchSources} setResearchSources={setResearchSources}
+              browserUseApiKey={browserUseApiKey} setBrowserUseApiKey={setBrowserUseApiKey}
               onGenerate={handleGenerate}
               isSubmitting={isSubmitting}
               error={error}
@@ -351,23 +369,28 @@ export default function Home() {
 
         {/* Pack Viewer */}
         {pack && (
-          <PackViewer
-            pack={pack}
-            examStarted={examStarted}
-            setExamStarted={setExamStarted}
-            examTimeLeft={examTimeLeft}
-            examAnswers={examAnswers}
-            setExamAnswers={setExamAnswers}
-            examResults={examResults}
-            onAnswerCheck={handleAnswerCheck}
-            remediation={remediation}
-            onRemediationRequest={handleRemediation}
-            remediationLoading={remediationLoading}
-            coachMessages={coachMessages}
-            onCoachSend={handleCoachSend}
-            coachBusy={coachBusy}
-            onDownloadPdf={downloadPdf}
-          />
+            <PackViewer
+              pack={pack}
+              examStarted={examStarted}
+              setExamStarted={setExamStarted}
+              examTimeLeft={examTimeLeft}
+              examAnswers={examAnswers}
+              setExamAnswers={setExamAnswers}
+              examResults={examResults}
+              onAnswerCheck={handleAnswerCheck}
+              remediation={remediation}
+              onRemediationRequest={handleRemediation}
+              remediationLoading={remediationLoading}
+              coachMessages={coachMessages}
+              onCoachSend={handleCoachSend}
+              coachBusy={coachBusy}
+              coachMode={coachMode}
+              setCoachMode={setCoachMode}
+              useBrowserUse={useBrowserUse}
+              setUseBrowserUse={setUseBrowserUse}
+              browserUseReady={Boolean(browserUseApiKey)}
+              onDownloadPdf={downloadPdf}
+            />
         )}
 
       </div>

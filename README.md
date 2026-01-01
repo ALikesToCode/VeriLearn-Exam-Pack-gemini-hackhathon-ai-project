@@ -26,6 +26,7 @@ Open `http://localhost:3000` and paste a playlist or a list of video URLs. Provi
 - Shareable pack pages
 - Saved pack list + delete
 - Coach / Viva / Assist chat mode (streamed + live sessions + optional WebSocket)
+- Browser Use Cloud assist tasks (prefix messages with `browser:`)
 - Deep research mode via Serper (optional API key)
 - Resume generation via job id
 - File Search store grounding (vault upload)

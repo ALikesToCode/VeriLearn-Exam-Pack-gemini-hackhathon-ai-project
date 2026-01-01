@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Pack, GradeResult, PracticePlan, RemediationItem } from "../../../lib/types"; // Ensure this path is correct relative to where I put it. 
+import { Pack, GradeResult, PracticePlan, RemediationItem } from "../../lib/types";
 // Wait, I am putting this in components/features/PackViewer.tsx or similar.
 // The file path in write_to_file will be components/features/PackViewer.tsx
 // So path to lib/types is ../../lib/types
@@ -36,6 +36,11 @@ interface PackViewerProps {
     coachMessages: any[]; // Type properly later
     onCoachSend: (msg: string) => void;
     coachBusy: boolean;
+    coachMode: "coach" | "viva" | "assist";
+    setCoachMode: (val: "coach" | "viva" | "assist") => void;
+    useBrowserUse: boolean;
+    setUseBrowserUse: (val: boolean) => void;
+    browserUseReady: boolean;
 
     // Export Actions
     onDownloadPdf: () => void;
@@ -50,6 +55,8 @@ export const PackViewer: React.FC<PackViewerProps> = ({
     onAnswerCheck,
     remediation, onRemediationRequest, remediationLoading,
     coachMessages, onCoachSend, coachBusy,
+    coachMode, setCoachMode,
+    useBrowserUse, setUseBrowserUse, browserUseReady,
     onDownloadPdf
 }) => {
     const [view, setView] = useState<ViewMode>("schedule");
@@ -72,8 +79,8 @@ export const PackViewer: React.FC<PackViewerProps> = ({
                             key={mode}
                             onClick={() => setView(mode)}
                             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${view === mode
-                                    ? "bg-white text-teal-700 shadow-sm"
-                                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+                                ? "bg-white text-teal-700 shadow-sm"
+                                : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
                                 }`}
                         >
                             {mode.charAt(0).toUpperCase() + mode.slice(1)}
@@ -115,6 +122,11 @@ export const PackViewer: React.FC<PackViewerProps> = ({
                         messages={coachMessages}
                         onSend={onCoachSend}
                         isBusy={coachBusy}
+                        mode={coachMode}
+                        setMode={setCoachMode}
+                        useBrowserUse={useBrowserUse}
+                        setUseBrowserUse={setUseBrowserUse}
+                        browserUseReady={browserUseReady}
                     />
                 )}
             </div>

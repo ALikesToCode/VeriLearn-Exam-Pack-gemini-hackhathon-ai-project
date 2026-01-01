@@ -149,7 +149,7 @@ export async function setVaultDoc(doc: VaultDoc) {
 
 export async function listVaultDocs() {
   if (USE_KV) {
-    const ids = (await kv.smembers<string>("vault:index")) ?? [];
+    const ids = (await kv.smembers<string[]>("vault:index")) ?? [];
     const docs = await Promise.all(ids.map((id) => kv.get<VaultDoc>(`vault:${id}`)));
     return docs.filter(Boolean) as VaultDoc[];
   }
@@ -270,7 +270,7 @@ export async function deleteCoachSession(sessionId: string) {
 
 export async function listPacks(): Promise<PackSummary[]> {
   if (USE_KV) {
-    const ids = (await kv.smembers<string>("packs:index")) ?? [];
+    const ids = (await kv.smembers<string[]>("packs:index")) ?? [];
     const packs = await Promise.all(
       ids.map((id) => kv.get<Pack>(`pack:${id}`))
     );

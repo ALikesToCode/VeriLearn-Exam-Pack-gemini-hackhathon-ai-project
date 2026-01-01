@@ -36,3 +36,4 @@
 - Enable Gemini Live API toggle and confirm responses stream from live session.
 - Try Viva mode and verify the coach asks one question at a time with feedback.
 - Try Assist mode with a research key and confirm search-based context appears.
+- In Assist mode, send a `browser: ...` prompt and confirm a Browser Use live URL appears.

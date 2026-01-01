@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     }
   });
 
-  return new NextResponse(pdfBytes, {
+  return new NextResponse(Buffer.from(pdfBytes), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename=\"${pack.title.replace(/\s+/g, "-")}.pdf\"`

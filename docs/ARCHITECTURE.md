@@ -37,6 +37,7 @@ VeriLearn is a single Next.js full-stack app hosted on Vercel. The UI, API route
 ## APIs
 - `POST /api/generate-pack` (supports optional resume job id)
 - `GET /api/status/:jobId`
+- `GET /api/status/stream/:jobId` (SSE progress stream)
 - `GET /api/packs`
 - `GET/DELETE /api/study-pack/:packId`
 - `POST /api/submit-answer`

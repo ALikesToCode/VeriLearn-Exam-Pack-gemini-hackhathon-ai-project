@@ -153,6 +153,7 @@ This repo runs as a single Next.js app (UI + API routes + pipeline) instead of t
 
 ### API surface (current)
 - POST /api/generate-pack, GET /api/status/:jobId
+- GET /api/status/stream/:jobId (SSE)
 - GET /api/study-pack/:packId, GET /api/packs
 - POST /api/submit-answer, POST /api/remediation, GET /api/practice
 - GET /api/export/pdf|html|anki

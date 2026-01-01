@@ -1,8 +1,5 @@
 import React, { useState } from "react";
-import { Pack, GradeResult, PracticePlan, RemediationItem } from "../../lib/types";
-// Wait, I am putting this in components/features/PackViewer.tsx or similar.
-// The file path in write_to_file will be components/features/PackViewer.tsx
-// So path to lib/types is ../../lib/types
+import { Pack, GradeResult, RemediationItem } from "../../lib/types";
 
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -33,7 +30,7 @@ interface PackViewerProps {
     remediationLoading: boolean;
 
     // Coach Props
-    coachMessages: any[]; // Type properly later
+    coachMessages: Array<{ role: "user" | "assistant"; content: string }>;
     onCoachSend: (msg: string) => void;
     coachBusy: boolean;
     coachMode: "coach" | "viva" | "assist";
